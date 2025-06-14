@@ -2,12 +2,16 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
-from datetime import datetime
 import logging
 import math
 log = logging.getLogger(__name__)
 
 
+
+ANGLE_THRESHOLD = 165
+MIN_EYE_SCORE = 0.6
+MIN_EAR_SCORE = 0.6
+MIN_NOSE_SCORE = 0.65
 
 ###############################################################
 # CONFIGURACAO: Definir esqueleto COCO (17 keypoints)
@@ -84,8 +88,6 @@ def run_hrnet_pose_inference(pose_inferencer, image_rgb):
 
     return keypoints_dict, keypoints_scores
 
-
-
 def angle_between_vectors(v1, v2):
     """
     Retorna o ângulo em graus entre dois vetores 2D (v1 e v2).
@@ -114,77 +116,63 @@ def angle_between_vectors(v1, v2):
     angle_degrees = math.degrees(math.acos(cos_angle))
     return angle_degrees
 
-
-def is_facing_away(
-    keypoints,
-    keypoint_scores,
-    angle_threshold=165,
-    min_eye_score=0.6,
-    min_ear_score=0.5,
-    min_nose_score=0.4
-):
+def is_facing_away(keypoints, keypoint_scores):
+    """
+    Retorna True se provavelmente o jogador está de costas, com base em:
+    - baixa confiança em olhos, nariz ou orelhas
+    - ângulo tronco-cabeça grande
+    - ombros invertidos
+    Usa limiares globais: ANGLE_THRESHOLD, MIN_EYE_SCORE, MIN_EAR_SCORE, MIN_NOSE_SCORE
+    """
     needed = [
         'left_shoulder', 'right_shoulder',
         'left_hip', 'right_hip',
         'left_eye', 'right_eye',
         'left_ear', 'right_ear',
-        'nose', 'left_wrist', 'right_wrist'
+        'nose'
     ]
     for n in needed:
         if n not in keypoints or n not in keypoint_scores:
-            print(f"[DEBUG] Keypoint ausente: {n}")
             return False
 
-    # Posições
     ls = np.array(keypoints['left_shoulder'])
     rs = np.array(keypoints['right_shoulder'])
     lh = np.array(keypoints['left_hip'])
     rh = np.array(keypoints['right_hip'])
     leye = np.array(keypoints['left_eye'])
     reye = np.array(keypoints['right_eye'])
-    nose = np.array(keypoints['nose'])
-    lwrist = np.array(keypoints['left_wrist'])
-    rwrist = np.array(keypoints['right_wrist'])
 
     # Scores
-    lear = keypoint_scores['left_ear']
-    rear = keypoint_scores['right_ear']
     leye_score = keypoint_scores['left_eye']
     reye_score = keypoint_scores['right_eye']
     nose_score = keypoint_scores['nose']
+    lear_score = keypoint_scores['left_ear']
+    rear_score = keypoint_scores['right_ear']
 
     score = 0
-
-    # 1) Confiança baixa em olhos e nariz
-    if leye_score < min_eye_score or reye_score < min_eye_score:
-        print("[DEBUG] Olhos com baixa confiança")
+    # 1) Confiança baixa em olhos
+    if leye_score < MIN_EYE_SCORE or reye_score < MIN_EYE_SCORE:
         score += 1
-    if min_nose_score < nose_score:
-        print("[DEBUG] Nariz com baixa confiança")
+    # 2) Confiança baixa em nariz
+    if nose_score < MIN_NOSE_SCORE:
         score += 1
-
+    # 3) Confiança baixa em orelhas
+    if lear_score < MIN_EAR_SCORE or rear_score < MIN_EAR_SCORE:
+        score += 1
+    # 4) Ângulo tronco–cabeça
     eye_center = (leye + reye) / 2
-    # 3) Ângulo entre cabeça e tronco
     mid_shoulder = (ls + rs) / 2
     mid_hip = (lh + rh) / 2
     trunk_vector = mid_hip - mid_shoulder
     head_vector = eye_center - mid_shoulder
     angle = angle_between_vectors(trunk_vector, head_vector)
-    print(f"[DEBUG] Ângulo tronco-cabeça: {angle:.1f}°")
-    if angle > angle_threshold:
-        print("[DEBUG] Ângulo grande → costas")
+    if angle > ANGLE_THRESHOLD:
         score += 1
-
-    # 4) Ombros invertidos
+    # 5) Ombros invertidos (esquerdo à direita do direito)
     if rs[0] > ls[0]:
-        print("[DEBUG] Ombros invertidos (esq > dir)")
         score += 1
-
-    # Decisão
-    print(f"[DEBUG] Score total: {score}")
+    # Decisão: se >= 3 das condições
     return score >= 3
-
-
 
 def crop_back_region(image_rgb, keypoints):
     """
@@ -281,7 +269,7 @@ def debug_save_image(
 
     try:
         cv2.imwrite(output_path, debug_img_bgr)
-        print(f"[DEBUG] Salvou imagem com anotações em: {output_path}")
+        #print(f"[DEBUG] Salvou imagem com anotações em: {output_path}")
     except Exception as e:
         print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
 
@@ -319,7 +307,7 @@ def save_ocr_results(detections: pd.DataFrame, output_file="ocr_results_direct.c
         header=not file_exists
     )
 
-    print(f"✅ {len(output_df)} resultados do OCR direto adicionados a: {output_file}")
+    #print(f"✅ {len(output_df)} resultados do OCR direto adicionados a: {output_file}")
 
 def alternative_jersey_number_detection(images_np, save_images=True, output_dir="debug_images"):
     if save_images:
@@ -338,13 +326,14 @@ def alternative_jersey_number_detection(images_np, save_images=True, output_dir=
         if save_images:
             filename = os.path.join(output_dir, f"player_{i}_number_{simulated_number}.jpg")
             cv2.imwrite(filename, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
-            print(f"✅ Imagem salva: {filename}")
+            #print(f"✅ Imagem salva: {filename}")
 
     return jersey_numbers, confidences
 
 def save_images_by_tracklet(detections, images_np, metadatas, tracklet_images, output_dir):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+
+    #if not os.path.exists(output_dir):
+        #os.makedirs(output_dir)
 
     idx = 0
     for _, detection in detections.iterrows():
@@ -366,13 +355,82 @@ def save_images_by_tracklet(detections, images_np, metadatas, tracklet_images, o
         tracklet_images[track_id].append((frame_id, image_rgb))
 
         # Salva em disco
-        """ tracklet_dir = os.path.join(output_dir, f'tracklet_{track_id}')
-        os.makedirs(tracklet_dir, exist_ok=True)
+        #tracklet_dir = os.path.join(output_dir, f'tracklet_{track_id}')
+        #os.makedirs(tracklet_dir, exist_ok=True)
 
-        image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
-        filename = os.path.join(tracklet_dir, f'frame_{frame_id}.jpg')
-        cv2.imwrite(filename, image_bgr) """
+        #image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+        #filename = os.path.join(tracklet_dir, f'frame_{frame_id}.jpg')
+        #cv2.imwrite(filename, image_bgr) 
 
         idx += 1
 
     return tracklet_images
+
+def compute_pose_metrics(keypoints, keypoint_scores):
+    """Calcula métricas úteis de pose para debug usando limiares globais."""
+    metrics = {}
+    try:
+        # Extrai coordenadas
+        ls = np.array(keypoints.get('left_shoulder', [0, 0]))
+        rs = np.array(keypoints.get('right_shoulder', [0, 0]))
+        lh = np.array(keypoints.get('left_hip', [0, 0]))
+        rh = np.array(keypoints.get('right_hip', [0, 0]))
+        leye = np.array(keypoints.get('left_eye', [0, 0]))
+        reye = np.array(keypoints.get('right_eye', [0, 0]))
+        nose = np.array(keypoints.get('nose', [0, 0]))
+
+        # Extrai scores
+        lear_score = keypoint_scores.get('left_ear', 0.0)
+        rear_score = keypoint_scores.get('right_ear', 0.0)
+        leye_score = keypoint_scores.get('left_eye', 0.0)
+        reye_score = keypoint_scores.get('right_eye', 0.0)
+        nose_score = keypoint_scores.get('nose', 0.0)
+
+        # Cálculo de ângulo tronco–cabeça
+        mid_shoulder = (ls + rs) / 2
+        mid_hip = (lh + rh) / 2
+        eye_center = (leye + reye) / 2
+        angle = angle_between_vectors(mid_hip - mid_shoulder, eye_center - mid_shoulder)
+
+        # Flags individuais usando limiares globais
+        shoulder_inversion = float(ls[0] > rs[0])
+        low_eye = float(leye_score < MIN_EYE_SCORE or reye_score < MIN_EYE_SCORE)
+        low_ear = float(lear_score < MIN_EAR_SCORE or rear_score < MIN_EAR_SCORE)
+        low_nose = float(nose_score < MIN_NOSE_SCORE)
+
+        # Usa defaults de is_facing_away (que referenciam as mesmas constantes)
+        facing_away_flag = float(is_facing_away(keypoints, keypoint_scores))
+
+        # Atualiza dicionário de métricas
+        metrics.update({
+            'angle': float(angle),
+            'left_ear_score': lear_score,
+            'right_ear_score': rear_score,
+            'left_eye_score': leye_score,
+            'right_eye_score': reye_score,
+            'nose_score': nose_score,
+            'shoulder_inversion': shoulder_inversion,
+            'low_eye': low_eye,
+            'low_ear': low_ear,
+            'low_nose': low_nose,
+            'facing_away': facing_away_flag
+        })
+    except Exception as e:
+        log.warning(f"Erro ao computar métricas de pose: {e}")
+    return metrics
+
+
+def save_pose_debug_data(pose_debug_data, run_path, prefix="track_pose_metrics"):
+    """Salva dicionário pose_debug_data {track_id: [ {frame_id, ...}, ... ]} em CSVs."""
+    if not pose_debug_data:
+        return
+    pose_debug_dir = os.path.join(run_path, "debug_pose_metrics")
+    os.makedirs(pose_debug_dir, exist_ok=True)
+    for track_id, entries in pose_debug_data.items():
+        try:
+            df_pose = pd.DataFrame(entries)
+            out_file = os.path.join(pose_debug_dir, f"{prefix}_track_{track_id}.csv")
+            df_pose.to_csv(out_file, index=False)
+            log.info(f"Pose metrics salvo: {out_file}")
+        except Exception as e:
+            log.warning(f"Falha ao salvar pose metrics para track {track_id}: {e}")
