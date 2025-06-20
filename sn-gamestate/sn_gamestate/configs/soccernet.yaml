@@ -34,6 +34,8 @@ pipeline:
   - calibration
   - jersey_number_detect
   - tracklet_agg   # agrega role+JN antes da avaliação
+  - team
+  - team_side
 
 
 
@@ -53,11 +55,11 @@ use_rich: True
 modules: # Allows module-specific batch_size and other configuration
   bbox_detector: {batch_size: 1}
   pose_bottomup: {batch_size: 1}
-  reid: {batch_size: 2}
-  track: {batch_size: 2}
+  reid: {batch_size: 1}
+  track: {batch_size: 1}
   pitch: {batch_size: 1}
-  calibration: {batch_size: 1}
-  jersey_number_detect: {batch_size: 4}
+  calibration: {batch_size: 8}
+  jersey_number_detect: {batch_size: 2}
 
 # Flags
 test_tracking: True
@@ -67,8 +69,8 @@ print_config: False
 # Dataset
 dataset:
   nvid: 1  # For a quick first inference, only the first video is processed. Use "-1" to process all the videos.
-  #nframes: 10  # For testing on only a few frames, set to a positive number. Will disable evaluation !
-  eval_set: "valid"  # Tracking is performed on the SoccerNet validation set. Choose from {"train", "valid", "test", "challenge"}.
+  nframes: 10  # For testing on only a few frames, set to a positive number. Will disable evaluation !
+  eval_set: "test"  # Tracking is performed on the SoccerNet validation set. Choose from {"train", "valid", "test", "challenge"}.
   dataset_path: ${data_dir}/SoccerNetGS  # The SoccerNet game state dataset is located under the data path (defined above) in the 'SoccerNetGS' folder
   vids_dict: # Use   one key per split (valid, test, etc)
     valid: []  # Specify explicitly which video to apply tracking on, e.g. ['SNGS-04', 'SNGS-51'] . Ignored when left empty.

@@ -54,11 +54,12 @@ class MMOCR(DetectionLevelModule):
     def __init__(self, batch_size, device, **kwargs):
         super().__init__(batch_size=batch_size)
         self.device = device
-        self.images_debugJNR = kwargs.get("debugJNR", False)
-        self.confidence_threshold = kwargs.get("confidenceOCR", 0.85)
+        self.images_debugJNR = kwargs.get("debugJNR", True)
+        self.confidence_threshold = kwargs.get("confidenceOCR", 0.75)
         self.batch_size = batch_size
         self.jnr_batch_frames = kwargs.get("jnr_batch_frames", 5)
         self.use_superres = kwargs.get("use_superres", True)
+        self.pre_proc = kwargs.get("pre_proc", True) #piores resultados com pre_proc=True
 
         self.pose_debug_data = defaultdict(list)
 
@@ -83,25 +84,25 @@ class MMOCR(DetectionLevelModule):
         # PaddleOCR para tracklets
 
 
-        ocr_root = "/home/joao/soccernet/pretrained_models/paddleocr"
+
         self.paddle_ocr = PaddleOCR(
-            det=False,
+            det=True,
             cls=False,
             rec=True,
             use_gpu=True,
             use_tensorrt=False,
-            precision='fp16',        # ou 'fp32'
-            min_subgraph_size=30,    # ajuste fino
-            trt_min_shape=(1, 3, 32, 128),
-            trt_max_shape=(1, 3, 320, 960),
-            trt_opt_shape=(1, 3, 64, 320),
-            warmup=True
+            precision='fp32',
+            det_algorithm='DB',
+            rec_algorithm='SVTR_LCNet',
+            det_db_thresh=0.1,           # Reduzido para captar contornos mais sutis
+            det_db_box_thresh=0.3,       # Reduzido para aceitar detecções menos confiantes
+            det_db_unclip_ratio=2.0,     # Aumentado para expandir a região de detecção
+            drop_score=0.2,              # Reduzido para aceitar reconhecimentos menos confiantes
+            det_limit_side_len=2240,     # Aumentado para melhor resolução
+            det_limit_type='max',
+            max_batch_size=10,
+            use_dilation=True            # Adiciona dilatação para melhorar detecção
         )
-
-
-
-        
-
         # Super-resolução: RRDBNet + RealESRGANer
         self.rrdb = RRDBNet(
             num_in_ch=3,
@@ -226,13 +227,13 @@ class MMOCR(DetectionLevelModule):
             cropped_list = []
             for frame_id, raw_img in imgs_list:
                 if raw_img is None or raw_img.size == 0 or self.pose_model is None:
-                    cropped_list.append((frame_id, raw_img))
+                    #cropped_list.append((frame_id, raw_img))
                     continue
 
                 # Inferência de pose
                 keypoints, keypoints_scores = run_hrnet_pose_inference(self.pose_model, raw_img)
                 if keypoints is None or keypoints_scores is None:
-                    cropped_list.append((frame_id, raw_img))
+                    #cropped_list.append((frame_id, raw_img))
                     continue
 
                 # Computar métricas de pose e armazenar em self.pose_debug_data
@@ -390,9 +391,7 @@ class MMOCR(DetectionLevelModule):
                 if self.images_debugJNR:
                     print(f"    [Timing] SR frame {fid} levou {time.perf_counter()-t0:.3f}s")
 
-            # dump para debug
-            #debug_dir = os.path.join(os.getenv("HYDRA_RUN_DIR","."), "debug_before_paddle")
-            #os.makedirs(debug_dir, exist_ok=True)
+
             #for i, img_bgr in enumerate(enh_imgs_bgr):
                 #fn = os.path.join(debug_dir, f"track{track_id}_crop_{i}.png")
                 #cv2.imwrite(fn, img_bgr)
@@ -401,8 +400,18 @@ class MMOCR(DetectionLevelModule):
             # --- OCR
             ocr_results = []
             ocr_start = time.perf_counter()
-            for img_bgr in enh_imgs_bgr:
-                res = self.paddle_ocr.ocr(img_bgr, det=True, rec=True, cls=False)
+            for idx, img_bgr in enumerate(enh_imgs_bgr):
+                if self.pre_proc:
+                    img_pre = self.preprocess_for_digits_gray(img_bgr)
+                else:
+                    img_pre =  cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                # dump para debug
+                if self.images_debugJNR:
+                    debug_dir = os.path.join(os.getenv("HYDRA_RUN_DIR","."), "debug_before_paddle")
+                    fn = os.path.join(debug_dir, f"track{track_id}_crop_{idx}.png")
+                    os.makedirs(debug_dir, exist_ok=True)
+                    cv2.imwrite(fn, img_pre)
+                res = self.paddle_ocr.ocr(img_pre, det=True, rec=True, cls=False)
                 ocr_results.append(res)
             ocr_time = time.perf_counter() - ocr_start
             if self.images_debugJNR:
@@ -720,3 +729,29 @@ class MMOCR(DetectionLevelModule):
         # ---------- GC ----------
         gc.collect()
         log.info("[cleanup] Memória de OCR+SR libertada.")
+
+    def preprocess_for_digits_gray(self, bgr: np.ndarray) -> np.ndarray:
+        """Pré-processamento simplificado e otimizado para memória"""
+        # 1) converte pra cinza
+        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+
+        # 2) realce de contraste local (CLAHE) com parâmetros mais suaves
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        eq = clahe.apply(gray)
+
+        # 3) binarização adaptativa (mais eficiente que Otsu para nosso caso)
+        binary = cv2.adaptiveThreshold(
+            eq,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            11,
+            2
+        )
+
+        # 4) operações morfológicas básicas
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
+        clean = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+        # Converte de volta para BGR (necessário para o OCR)
+        return cv2.cvtColor(clean, cv2.COLOR_GRAY2BGR)
