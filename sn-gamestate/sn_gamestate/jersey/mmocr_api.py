@@ -847,3 +847,17 @@ class MMOCR(DetectionLevelModule):
                 'confidence': conf
             })
         return number, conf
+
+    def has_min_consecutive(self, buffer, value, min_consecutive):
+        """
+        Verifica se 'value' aparece pelo menos 'min_consecutive' vezes seguidas em 'buffer'.
+        """
+        count = 0
+        for v in buffer:
+            if v == value:
+                count += 1
+                if count >= min_consecutive:
+                    return True
+            else:
+                count = 0
+        return False
