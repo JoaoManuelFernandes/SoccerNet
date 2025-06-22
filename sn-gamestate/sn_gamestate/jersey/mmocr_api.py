@@ -72,7 +72,7 @@ class MMOCR(DetectionLevelModule):
         self.ocr_decision_strategy = ocr_decision_strategy
         self.persistence_required = persistence_required
         self.JNRDebug =True
-        self.imageDebug = True
+        self.imageDebug = False
         self.confidence_threshold = confidence_threshold
         self.jnr_batch_frames = jnr_batch_frames
         self.use_superres = use_superres
