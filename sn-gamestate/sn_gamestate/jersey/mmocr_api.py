@@ -51,15 +51,32 @@ class MMOCR(DetectionLevelModule):
     output_columns = ["jersey_number_detection", "jersey_number_confidence"]
     collate_fn = default_collate
 
-    def __init__(self, batch_size, device, **kwargs):
+    def __init__(
+        self,
+        batch_size,
+        device,
+        model_dir=None,
+        ocr_decision_strategy="sliding_persistence",
+        persistence_required=2,
+        min_votes = 2,
+        confidence_threshold = 0.85,
+        jnr_batch_frames = 5,
+        use_superres = True,
+        debug_paddleocr = False,
+        **kwargs
+    ):
         super().__init__(batch_size=batch_size)
         self.device = device
-        self.images_debugJNR = kwargs.get("debugJNR", True)
-        self.confidence_threshold = kwargs.get("confidenceOCR", 0.75)
         self.batch_size = batch_size
-        self.jnr_batch_frames = kwargs.get("jnr_batch_frames", 5)
-        self.use_superres = kwargs.get("use_superres", True)
-        self.pre_proc = kwargs.get("pre_proc", True) #piores resultados com pre_proc=True
+        self.model_dir = model_dir
+        self.ocr_decision_strategy = ocr_decision_strategy
+        self.persistence_required = persistence_required
+        self.JNRDebug =True
+        self.imageDebug = True
+        self.confidence_threshold = confidence_threshold
+        self.jnr_batch_frames = jnr_batch_frames
+        self.use_superres = use_superres
+        self.pre_proc = kwargs.get("pre_proc", False) #piores resultados com pre_proc=True
 
         self.pose_debug_data = defaultdict(list)
 
@@ -67,8 +84,15 @@ class MMOCR(DetectionLevelModule):
 
         self.tracklet_images_global = {}
         self.comparison_rows = []
-        self.debug_paddleocr = kwargs.get("debug_paddleocr", True)
+        self.debug_paddleocr = debug_paddleocr
         self.tracklet_debug_data = defaultdict(list) 
+
+        # Buffer de detecções por bloco de frames, lógica de decisão/votação por bloco em should_replace, e logging detalhado das detecções por modelo/track para exportação ao final do pipeline.
+        self.tracklet_detection_buffer = defaultdict(list)  # Para logging e decisão por bloco
+        self.tracklet_detection_logs = defaultdict(list)  # Para logging detalhado por track/modelo
+        self.confidence_sum_buffer = defaultdict(lambda: defaultdict(float))  # Para confidence_sum
+        self.last_majority = defaultdict(lambda: None)  # Para sliding_persistence
+        self.persistence_count = defaultdict(lambda: 0)  # Para sliding_persistence
 
         # MMOCR baseline
         self.textdetinferencer = TextDetInferencer('dbnet_resnet18_fpnc_1200e_icdar2015', device=device)
@@ -81,9 +105,49 @@ class MMOCR(DetectionLevelModule):
             det_cat_ids=[0],
         )
 
-        # PaddleOCR para tracklets
 
-
+        # --- Garantir que os modelos PaddleOCR v4 estão presentes ---
+        # --- Usar diretório self.model_dir do config para modelos ---
+        det_model_dir = os.path.join(self.model_dir, 'paddleocr', 'ch_PP-OCRv4_det_infer')
+        rec_model_dir = os.path.join(self.model_dir, 'paddleocr', 'ch_PP-OCRv4_rec_infer')
+        # URLs oficiais dos modelos (ajuste se necessário)
+        det_url = 'https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_det_infer.tar'
+        rec_url = 'https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_rec_infer.tar'
+        # Função para baixar e extrair se necessário
+        def download_and_extract(model_dir, url):
+            if not os.path.exists(model_dir):
+                import requests, tarfile
+                os.makedirs(model_dir, exist_ok=True)
+                tar_path = model_dir + '.tar'
+                print(f"Baixando modelo {url} ...")
+                r = requests.get(url, allow_redirects=True)
+                with open(tar_path, 'wb') as f:
+                    f.write(r.content)
+                print(f"Extraindo {tar_path} ...")
+                with tarfile.open(tar_path) as tar:
+                    tar.extractall(path=os.path.dirname(model_dir))
+                os.remove(tar_path)
+        download_and_extract(det_model_dir, det_url)
+        download_and_extract(rec_model_dir, rec_url)
+        # Inicialização dos modelos OCR
+        self.ocr_models = {}
+        self.ocr_models['ppocr_v4'] = PaddleOCR(
+            use_gpu=True,
+            det=True,
+            cls=False,
+            rec=True,
+            det_algorithm='DB',
+            rec_algorithm='SVTR_LCNet',
+            det_model_dir=det_model_dir,
+            rec_model_dir=rec_model_dir,
+            det_limit_side_len=960,
+            det_db_thresh=0.1,
+            det_db_box_thresh=0.3,
+            det_db_unclip_ratio=2.0,
+            drop_score=0.2,
+            det_limit_type='max',
+            use_dilation=True
+        )
 
         self.paddle_ocr = PaddleOCR(
             det=True,
@@ -103,6 +167,19 @@ class MMOCR(DetectionLevelModule):
             max_batch_size=10,
             use_dilation=True            # Adiciona dilatação para melhorar detecção
         )
+
+
+        # 2. PP-OCRv3 (mantido para comparação)
+        self.ocr_models['ppocr_v3'] = self.paddle_ocr
+
+        try:
+            # 3. EasyOCR
+            import easyocr
+            self.ocr_models['easyocr'] = easyocr.Reader(['en'], gpu=True)
+        except ImportError:
+            if self.JNRDebug:
+                print("EasyOCR não instalado")
+
         # Super-resolução: RRDBNet + RealESRGANer
         self.rrdb = RRDBNet(
             num_in_ch=3,
@@ -121,7 +198,7 @@ class MMOCR(DetectionLevelModule):
             pre_pad=0,
             half=True
         )
-     
+        self.min_votes = min_votes# mínimo de vezes seguidas que o número deve aparecer para ser aceito
     def no_jersey_number(self):
         return None, 0
 
@@ -218,6 +295,10 @@ class MMOCR(DetectionLevelModule):
             tracklet_images=self.tracklet_images_global,
             output_dir=tracklets_output_dir
         )
+        # LOG: estado do buffer de imagens por tracklet
+        if self.JNRDebug:
+            for track_id, imgs_list in self.tracklet_images_global.items():
+                print(f"[tracklet_images_global][track {track_id}] contém {len(imgs_list)} imagens: {[fid for fid, _ in imgs_list]}")
 
         # 3) Para cada tracklet pronto, rodar pose+OCR
         for track_id, imgs_list in list(self.tracklet_images_global.items()):
@@ -280,7 +361,7 @@ class MMOCR(DetectionLevelModule):
             # Agrupar para OCR
             cropped_list_rgb = [(track_id, fid, img) for fid, img in cropped_list]
             # Rodar OCR por tracklet
-            if self.images_debugJNR:
+            if self.JNRDebug:
                 print(f"run_paddleocr_batch (track_id={track_id}, {len(cropped_list_rgb)} frames)...")
                 t0_paddle = time.perf_counter()
                 result_dict = self.run_paddleocr_batch(cropped_list_rgb)
@@ -290,13 +371,14 @@ class MMOCR(DetectionLevelModule):
                 result_dict = self.run_paddleocr_batch(cropped_list_rgb)
 
             batch_jn, batch_conf = result_dict.get(track_id, (None, 0.0))
-            if batch_jn is not None and self.images_debugJNR:
+            if batch_jn is not None and self.JNRDebug:
                 print(f"[TrackletOCR] Track {track_id} → jersey {batch_jn} (conf={batch_conf:.2f})")
 
             frames_do_batch = [fid for (fid, _) in cropped_list]
             if batch_jn is not None:
                 prev_jn, prev_conf = self.best_by_track.get(track_id, (None, 0.0))
-                if self.should_replace(prev_jn, prev_conf, batch_jn, batch_conf):
+                # CORRIGIDO: garantir que track_id é passado para should_replace
+                if self.should_replace(prev_jn, prev_conf, batch_jn, batch_conf, track_id=track_id):
                     self.best_by_track[track_id] = (batch_jn, batch_conf)
                     chosen_jn, chosen_conf = batch_jn, batch_conf
                 else:
@@ -304,6 +386,16 @@ class MMOCR(DetectionLevelModule):
                 mask = detections['image_id'].isin(frames_do_batch)
                 detections.loc[mask, 'ocr_tracklet_pose_jn']   = chosen_jn
                 detections.loc[mask, 'ocr_tracklet_pose_conf'] = chosen_conf
+
+            # Após rodar OCR por tracklet, atualizar buffer de detecções por track
+            if batch_jn is not None:
+                # Adiciona detecção ao buffer de blocos (robustez real)
+                block_buffer = self.tracklet_detection_buffer[track_id]
+                block_buffer.append(batch_jn)
+                # Mantém histórico de blocos (não corta para N frames, mas pode limitar tamanho se quiser)
+                # Se precisar limitar tamanho, descomente a linha abaixo (pode ajustar limite se necessário)
+                # if len(block_buffer) > 10:
+                #     block_buffer.pop(0)
 
             # Manter apenas último no buffer
             if imgs_list:
@@ -324,7 +416,6 @@ class MMOCR(DetectionLevelModule):
 
         return detections
 
-
     @torch.no_grad()
     def run_superres(self, img_bgr: np.ndarray, identifier: str) -> np.ndarray:
 
@@ -341,7 +432,7 @@ class MMOCR(DetectionLevelModule):
         upscaler.tile = 128                 # opcional: ajusta tiling
 
         # ---- DEBUG opcional ----
-        if self.images_debugJNR:
+        if self.JNRDebug:
             run_dir = os.getenv("HYDRA_RUN_DIR", os.getcwd())
             ddir = os.path.join(run_dir, "debug_sr_opt")
             os.makedirs(ddir, exist_ok=True)
@@ -355,15 +446,31 @@ class MMOCR(DetectionLevelModule):
         if not sr_bgr.flags['C_CONTIGUOUS']:
             sr_bgr = np.ascontiguousarray(sr_bgr)
 
-        if self.images_debugJNR:
+        if self.JNRDebug:
             cv2.imwrite(os.path.join(ddir, f"{identifier}_out.png"), sr_bgr)
 
         return sr_bgr
 
+    def ensure_model_exists(self, model_path, download_url=None):
+        """
+        Garante que o modelo existe no caminho especificado. Faz download se necessário.
+        """
+        if not os.path.exists(model_path):
+            if download_url is None:
+                raise FileNotFoundError(f"Modelo não encontrado e download_url não fornecida: {model_path}")
+            import requests
+            print(f"Baixando modelo para {model_path} ...")
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            r = requests.get(download_url, allow_redirects=True)
+            with open(model_path, 'wb') as f:
+                f.write(r.content)
+            print("Download concluído.")
+
     @torch.no_grad()
     def run_paddleocr_batch(self, track_images):
-        if self.images_debugJNR:
-            print(">>> ENTER run_paddleocr_batch")
+        if self.JNRDebug:
+            print(">>> ENTER OCR batch processing")
+        
         grouped = defaultdict(list)
         for track_id, frame_id, img in track_images:
             if img is not None and img.size:
@@ -372,7 +479,7 @@ class MMOCR(DetectionLevelModule):
         results_by_track = {}
 
         for track_id, frames_list in grouped.items():
-            if self.images_debugJNR:
+            if self.JNRDebug:
                 print(f"  [Track {track_id}] frames_list:", [f for f, _ in frames_list])
             t0 = time.perf_counter()
             detections = []
@@ -388,116 +495,60 @@ class MMOCR(DetectionLevelModule):
                 img_enh_bgr = cv2.cvtColor(img_enh_rgb, cv2.COLOR_RGB2BGR)
                 enh_imgs_bgr.append(img_enh_bgr)
                 fid_order.append(fid)
-                if self.images_debugJNR:
+                if self.JNRDebug:
                     print(f"    [Timing] SR frame {fid} levou {time.perf_counter()-t0:.3f}s")
 
-
-            #for i, img_bgr in enumerate(enh_imgs_bgr):
-                #fn = os.path.join(debug_dir, f"track{track_id}_crop_{i}.png")
-                #cv2.imwrite(fn, img_bgr)
-                #print(f"    [Debug] gravou crop em {fn}")
-
-            # --- OCR
-            ocr_results = []
-            ocr_start = time.perf_counter()
+            # Resultados de todos os modelos
+            all_model_results = defaultdict(list)
+            
             for idx, img_bgr in enumerate(enh_imgs_bgr):
-                if self.pre_proc:
-                    img_pre = self.preprocess_for_digits_gray(img_bgr)
-                else:
-                    img_pre =  cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-                # dump para debug
-                if self.images_debugJNR:
-                    debug_dir = os.path.join(os.getenv("HYDRA_RUN_DIR","."), "debug_before_paddle")
-                    fn = os.path.join(debug_dir, f"track{track_id}_crop_{idx}.png")
+                img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                # Salva imagem que será passada para os modelos OCR (corrigido para BGR)
+                if self.imageDebug:
+                    debug_dir = os.path.join(os.getenv("HYDRA_RUN_DIR","."), "debug_ocr_input")
                     os.makedirs(debug_dir, exist_ok=True)
-                    cv2.imwrite(fn, img_pre)
-                res = self.paddle_ocr.ocr(img_pre, det=True, rec=True, cls=False)
-                ocr_results.append(res)
-            ocr_time = time.perf_counter() - ocr_start
-            if self.images_debugJNR:
-                print(f"    [Timing] OCR {len(enh_imgs_bgr)} imgs levou {ocr_time:.3f}s")
+                    cv2.imwrite(os.path.join(debug_dir, f"track{track_id}_frame{fid_order[idx]}_ocrinput.png"), img_rgb)
+                # Tenta cada modelo
+                for model_name in self.ocr_models.keys():
+                    number, conf = self.run_ocr_with_model(img_rgb, model_name, track_id=track_id, frame_id=fid_order[idx])
+                    if number and conf >= self.confidence_threshold:
+                        all_model_results[model_name].append((number, conf))
+                        if self.JNRDebug:
+                            print(f"[{model_name}] detected {number} (conf={conf:.2f})")
 
-            # extrai números
-            for fid, res in zip(fid_order, ocr_results):
-                jn, conf = self.extract_jersey_numbers_from_paddleocr(res)
-                #print(f"    [OCR] frame {fid} -> ({jn}, {conf:.2f})")
-                if jn and conf >= self.confidence_threshold:
-                    detections.append((jn, conf))
-
-            # votação
-            if detections:
-                counts = Counter(j for j, _ in detections)
-                valid = [j for j,c in counts.items() if c>=min_votes]
-                if self.images_debugJNR:
-                    print(f"    [Vote] counts={counts}, min_votes={min_votes}, valid={valid}")
-                if valid:
-                    confs = {j:[c for j2,c in detections if j2==j] for j in valid}
-                    best_j = max(confs, key=lambda j: sum(confs[j])/len(confs[j]))
-                    best_c = sum(confs[best_j])/len(confs[best_j])
-                    results_by_track[track_id] = (best_j, best_c)
-
-                    if self.images_debugJNR:
-                        print(f"    [Result] Track {track_id} -> ({best_j}, {best_c:.2f})")
-            else:
-                if self.images_debugJNR:
-                    print(f"    [Result] Track {track_id} -> no detections")
-        if self.images_debugJNR:
-            print(">>> EXIT run_paddleocr_batch with results:", results_by_track)
+            # Votação considerando todos os modelos
+            final_number, final_conf = self.ensemble_voting(all_model_results)
+            if final_number:
+                results_by_track[track_id] = (final_number, final_conf)
 
         return results_by_track
 
-    def run_mmocr_inference(self, images_np):
+    def ensemble_voting(self, all_results):
         """
-        Roda detecção e reconhecimento de texto do MMOCR em mini batches.
+        Votação entre diferentes modelos
         """
-        result = {'det': [], 'rec': []}
+        all_detections = []
+        for model_name, detections in all_results.items():
+            for number, conf in detections:
+                all_detections.append((number, conf, model_name))
 
-        batch_size = self.batch_size
+        if not all_detections:
+            return None, 0.0
 
-        for i in range(0, len(images_np), batch_size):
-            batch_imgs = images_np[i:i+batch_size]
+        # Conta ocorrências de cada número
+        number_counts = Counter(n for n, _, _ in all_detections)
+        
+        # Pega o número mais votado
+        most_common = number_counts.most_common(1)
+        if not most_common:
+            return None, 0.0
 
-            det_preds = self.textdetinferencer(
-                batch_imgs,
-                return_datasamples=True,
-                batch_size=batch_size,
-                progress_bar=False,
-            )['predictions']
-            result['det'].extend(det_preds)
+        number = most_common[0][0]
+        # Média das confianças para este número
+        confs = [c for n, c, _ in all_detections if n == number]
+        avg_conf = sum(confs) / len(confs)
 
-            for img, det_data_sample in zip(batch_imgs, det_preds):
-                det_pred = det_data_sample.pred_instances
-                rec_inputs = []
-                for polygon in det_pred['polygons']:
-                    quad = bbox2poly(poly2bbox(polygon)).tolist()
-                    rec_input = crop_img(img, quad)
-                    if rec_input.shape[0] == 0 or rec_input.shape[1] == 0:
-                        continue
-                    rec_inputs.append(rec_input)
-
-                if rec_inputs:
-                    rec_preds = self.textrecinferencer(
-                        rec_inputs,
-                        return_datasamples=True,
-                        batch_size=batch_size,
-                        progress_bar=False
-                    )['predictions']
-                else:
-                    rec_preds = []
-
-                result['rec'].append(rec_preds)
-
-        # Simplifica resultados
-        pred_results = [{} for _ in range(len(result['rec']))]
-        for i, rec_pred_list in enumerate(result['rec']):
-            result_out = dict(rec_texts=[], rec_scores=[])
-            for rec_pred_instance in rec_pred_list:
-                rec_dict_res = self.textrecinferencer.pred2dict(rec_pred_instance)
-                result_out['rec_texts'].append(rec_dict_res['text'])
-                result_out['rec_scores'].append(rec_dict_res['scores'])
-            pred_results[i].update(result_out)
-
-        return pred_results
+        return number, avg_conf
 
     @torch.no_grad()
     def finalize_ocr(self, detections: pd.DataFrame) -> pd.DataFrame:
@@ -513,20 +564,55 @@ class MMOCR(DetectionLevelModule):
             final_jn, final_conf = result_dict.get(track_id, (None, 0.0))
             prev_jn, prev_conf = self.best_by_track.get(track_id, (None, 0.0))
             # usa should_replace para decidir atualização
-            if self.should_replace(prev_jn, prev_conf, final_jn, final_conf):
+            if self.should_replace(prev_jn, prev_conf, final_jn, final_conf, track_id=track_id):
                 self.best_by_track[track_id] = (final_jn, final_conf)
-            # Além disso, se você coletou métricas de pose em process(), nada a fazer aqui para pose
 
         # 2) Zera colunas de saída e preenche com o melhor jersey por track
         detections['jersey_number_detection']  = None
         detections['jersey_number_confidence'] = 0.0
 
-        for track_id, (best_jn, best_conf) in self.best_by_track.items():
-            if best_jn is None:
+        # --- NOVO: decisão final baseada no buffer de confiança ---
+        decision_log = []  # Para auditoria
+        for track_id in set(list(self.best_by_track.keys()) + list(self.confidence_sum_buffer.keys())):
+            if track_id is None:
+                continue
+            if self.ocr_decision_strategy == "confidence_sum":
+                conf_dict = {str(k): float(v) for k, v in self.confidence_sum_buffer[track_id].items() if k is not None and k != ''}
+                if conf_dict:
+                    # Frequência de cada número no buffer de blocos (robustez real)
+                    block_buffer = list(self.tracklet_detection_buffer[track_id])
+                    det_freq = {}
+                    for num in block_buffer:
+                        det_freq[num] = det_freq.get(num, 0) + 1
+                    # Loga todas as somas para auditoria
+                    for num, soma in conf_dict.items():
+                        decision_log.append({"track_id": track_id, "number": num, "confidence_sum": soma, "freq": det_freq.get(num, 0)})
+                    best_num = max(conf_dict, key=lambda k: conf_dict[k])
+                    freq = det_freq.get(best_num, 0)
+                    # Só aceita se best_num aparece min_votes vezes seguidas no buffer de blocos
+                    if freq >= self.min_votes and self.has_min_consecutive(block_buffer, best_num, self.min_votes):
+                        max_conf = 0.0
+                        for logs in self.tracklet_detection_logs.get(track_id, []):
+                            if logs.get('number') == best_num:
+                                max_conf = max(max_conf, logs.get('confidence', 0.0))
+                        self.best_by_track[track_id] = (best_num, max_conf)
+                    else:
+                        self.best_by_track[track_id] = (None, 0.0)
+            best_jn, best_conf = self.best_by_track.get(track_id, (None, 0.0))
+            if best_jn is None or track_id is None:
                 continue
             mask = detections['track_id'] == track_id
             detections.loc[mask, 'jersey_number_detection']  = best_jn
             detections.loc[mask, 'jersey_number_confidence'] = best_conf
+
+        # Salva log detalhado da decisão do confidence_sum
+        if self.ocr_decision_strategy == "confidence_sum" and decision_log:
+            log_dir = os.path.join(run_path, "ocr_confidence_sum_decision_logs")
+            os.makedirs(log_dir, exist_ok=True)
+            df_dec = pd.DataFrame(decision_log)
+            out_path = os.path.join(log_dir, "confidence_sum_decision_log.csv")
+            df_dec.to_csv(out_path, index=False)
+            log.info(f"📄 Log de decisão do confidence_sum exportado para {out_path}")
 
         # 3) (Opcional) Limpa o buffer de tracklets
         self.tracklet_images_global.clear()
@@ -537,7 +623,7 @@ class MMOCR(DetectionLevelModule):
             "jersey_number_detection": jn,
             "jersey_number_confidence": conf}
             for tid, (jn, conf) in sorted(self.best_by_track.items())
-            if jn is not None
+            if jn is not None and tid is not None
         ]
         if rows:
             df = pd.DataFrame(rows)
@@ -593,18 +679,45 @@ class MMOCR(DetectionLevelModule):
 
         # 7) Exporta métricas de pose coletadas em process()
         #   Supondo que em self.pose_debug_data você acumulou dicts {"track_id", "frame_id", ... métricas ...}
-        try:
-            from sn_gamestate.jersey.mmocr_utils import save_pose_debug_data
-            # salva CSVs em run_path/debug_pose_metrics/
-            save_pose_debug_data(self.pose_debug_data, run_path, prefix="pose_metrics")
-            # limpa buffer de pose
-            self.pose_debug_data.clear()
-        except Exception as e:
-            log.warning(f"[finalize_ocr] Falha ao salvar métricas de pose: {e}")
+        if self.JNRDebug:
+            try:
+                from sn_gamestate.jersey.mmocr_utils import save_pose_debug_data
+                # salva CSVs em run_path/debug_pose_metrics/
+                save_pose_debug_data(self.pose_debug_data, run_path, prefix="pose_metrics")
+                # limpa buffer de pose
+                self.pose_debug_data.clear()
+            except Exception as e:
+                log.warning(f"[finalize_ocr] Falha ao salvar métricas de pose: {e}")
 
         # 8) Por fim, limpa best_by_track e debug data de OCR
         self.best_by_track.clear()
         self.tracklet_debug_data.clear()
+
+        # 9) Exporta logs detalhados de detecção por track/modelo
+        run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
+        log_dir = os.path.join(run_path, "ocr_detections_by_track")
+        os.makedirs(log_dir, exist_ok=True)
+        for track_id, logs in self.tracklet_detection_logs.items():
+            df = pd.DataFrame(logs)
+            out_path = os.path.join(log_dir, f"track_{track_id}_ocr_log.csv")
+            df.to_csv(out_path, index=False)
+        log.info(f"📄 Logs detalhados de OCR exportados para {log_dir}")
+        self.tracklet_detection_logs.clear()
+        self.tracklet_detection_buffer.clear()
+
+        # 10) Exporta buffer de confiança para auditoria (apenas se houver)
+        if self.confidence_sum_buffer:
+            conf_dir = os.path.join(run_path, "ocr_confidence_sum_logs")
+            os.makedirs(conf_dir, exist_ok=True)
+            for track_id, conf_dict in self.confidence_sum_buffer.items():
+                df = pd.DataFrame([
+                    {"number": k, "confidence_sum": v}
+                    for k, v in conf_dict.items()
+                ])
+                out_path = os.path.join(conf_dir, f"track_{track_id}_confidence_sum.csv")
+                df.to_csv(out_path, index=False)
+            log.info(f"📄 Buffers de soma de confiança exportados para {conf_dir}")
+            self.confidence_sum_buffer.clear()
 
         return detections
 
@@ -619,7 +732,7 @@ class MMOCR(DetectionLevelModule):
         output_file = os.path.join(run_path, path)
         df = pd.DataFrame(self.comparison_rows)
         df.to_csv(output_file, index=False)
-        if self.images_debugJNR:
+        if self.JNRDebug:
             print(f"📄 Comparação OCR salva em: {path}")
 
     def extract_jersey_numbers_from_paddleocr(self, ocr_result):
@@ -664,94 +777,73 @@ class MMOCR(DetectionLevelModule):
         best_txt, best_score, _ = max(digit_boxes, key=lambda x: x[2])
         return best_txt, best_score
     
-    def should_replace(self, prev_jn, prev_conf, new_jn, new_conf):
-        # Se não havia nenhum antes, aceita se new_jn não for None
-        if prev_jn is None:
-            return new_jn is not None
-        if new_jn is None:
-            return False
-        # conta dígitos
-        len_prev = len(prev_jn)
-        len_new  = len(new_jn)
-        # se o anterior tem 2 dígitos e o novo só 1, não substituir
-        if len_prev == 2 and len_new == 1:
-            return False
-        # se o anterior tem 1 e o novo tem 2, substituir
-        if len_prev == 1 and len_new == 2:
-            return True
-        # se mesmos dígitos, decide por confiança
-        return new_conf > prev_conf
+    def update_majority_buffer(self, track_id, batch_jn, batch_conf):
+        N = self.jnr_batch_frames
+        det_buffer = self.tracklet_detection_buffer[track_id]
+        det_buffer.append(batch_jn)
+        if len(det_buffer) > N:
+            det_buffer.pop(0)
+        count = Counter([n for n in det_buffer if n])
+        if count:
+            most_common, freq = count.most_common(1)[0]
+        else:
+            most_common, freq = None, 0
+        return most_common, freq
 
-    def cleanup(self):
+    def should_replace(self, prev_jn, prev_conf, batch_jn, batch_conf, track_id=None, frame_id=None):
         """
-        Liberta explicitamente a memória (GPU e CPU) ocupada por:
-        • PaddleOCR (modelos Paddle + workers)
-        • RealESRGANer (pesos RRDBNet na GPU)
-        Chama-a depois de 'finalize_ocr', quando não precisas mais dos modelos.
+        Estratégia selecionável: sliding_persistence ou confidence_sum
         """
+        if self.ocr_decision_strategy == "confidence_sum":
+            # Acumula confiança por número, descartando None/nulo
+            if self.JNRDebug:
+                print(f"[should_replace][confidence_sum] track_id={track_id} batch_jn={batch_jn} batch_conf={batch_conf}")
+            if batch_jn is not None:
+                self.confidence_sum_buffer[track_id][batch_jn] += batch_conf
+            conf_dict = {k: v for k, v in self.confidence_sum_buffer[track_id].items() if k is not None and k != ''}
+            if self.JNRDebug:
+                print(f"[should_replace][confidence_sum] conf_dict={conf_dict}")
+            if not conf_dict:
+                return False
+            best_num = max(conf_dict, key=lambda k: conf_dict[k])
+            if self.JNRDebug:
+                print(f"[confidence_sum][track {track_id}] confs: {dict(conf_dict)} | best: {best_num}")
+            return best_num != prev_jn
+        else:
+            # Sliding persistence: verifica se o número atual é igual ao anterior
+            return batch_jn != prev_jn
 
-        # ---------- PaddleOCR ----------
+    def run_ocr_with_model(self, img, model_name, track_id=None, frame_id=None, log_all=True):
+        model = self.ocr_models.get(model_name)
+        if model is None:
+            if log_all and track_id is not None and frame_id is not None:
+                self.tracklet_detection_logs[track_id].append({
+                    'frame_id': frame_id,
+                    'model': model_name,
+                    'number': None,
+                    'confidence': 0.0
+                })
+            return None, 0.0
+        number, conf = None, 0.0
         try:
-            if getattr(self, "paddle_ocr", None) is not None:
-                # libertar pesos (VRAM) sem matar workers
-                for attr in ("text_detector", "text_recognizer", "text_classifier"):
-                    if hasattr(self.paddle_ocr, attr):
-                        setattr(self.paddle_ocr, attr, None)
-                # NÃO fazer: del self.paddle_ocr  nem mexer em proc_pool
-                # o GC cuidará quando o processo acabar
+            if model_name.startswith('ppocr'):
+                result = model.ocr(img, det=True, rec=True, cls=False)
+                number, conf = self.extract_jersey_numbers_from_paddleocr(result)
+            elif model_name == 'easyocr':
+                result = model.readtext(img)
+                digit_results = [(re.sub(r'\D', '', text), conf) for _, text, conf in result if any(c.isdigit() for c in text)]
+                digit_results = [(text[:2], conf) for text, conf in digit_results if 1 <= len(text[:2]) <= 2]
+                if digit_results:
+                    best_text, best_conf = max(digit_results, key=lambda x: x[1])
+                    number, conf = best_text, float(best_conf)
         except Exception as e:
-            log.warning(f"[cleanup] PaddleOCR: {e}")
-
-        # ---------- Real-ESRGAN ----------
-        try:
-            if hasattr(self, "upscaler") and self.upscaler is not None:
-                self.upscaler = None
-        except Exception as e:
-            log.warning(f"[cleanup] RealESRGAN: {e}")
-
-        # ---------- Torch ----------
-        try:
-            torch.cuda.empty_cache()
-        except Exception:
-            pass  # em CPU
-
-        # ---------- Paddle ----------
-        try:
-            if paddle.device.is_compiled_with_cuda():
-                try:
-                    paddle.device.cuda.empty_cache()
-                except AttributeError:
-                    # fallback para versões < 2.5
-                    paddle.fluid.core._cuda_empty_cache()
-        except Exception:
-            pass  # Paddle em CPU ou versão sem CUDA
-
-        # ---------- GC ----------
-        gc.collect()
-        log.info("[cleanup] Memória de OCR+SR libertada.")
-
-    def preprocess_for_digits_gray(self, bgr: np.ndarray) -> np.ndarray:
-        """Pré-processamento simplificado e otimizado para memória"""
-        # 1) converte pra cinza
-        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-
-        # 2) realce de contraste local (CLAHE) com parâmetros mais suaves
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        eq = clahe.apply(gray)
-
-        # 3) binarização adaptativa (mais eficiente que Otsu para nosso caso)
-        binary = cv2.adaptiveThreshold(
-            eq,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV,
-            11,
-            2
-        )
-
-        # 4) operações morfológicas básicas
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2,2))
-        clean = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-
-        # Converte de volta para BGR (necessário para o OCR)
-        return cv2.cvtColor(clean, cv2.COLOR_GRAY2BGR)
+            if self.JNRDebug:
+                print(f"Erro no modelo {model_name}: {e}")
+        if log_all and track_id is not None and frame_id is not None:
+            self.tracklet_detection_logs[track_id].append({
+                'frame_id': frame_id,
+                'model': model_name,
+                'number': number,
+                'confidence': conf
+            })
+        return number, conf

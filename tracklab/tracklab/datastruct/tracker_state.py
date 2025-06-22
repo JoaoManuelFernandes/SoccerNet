@@ -219,7 +219,9 @@ class TrackerState(AbstractContextManager):
         if self.save_file is None:
             save_zf = None
         else:
-            os.makedirs(os.path.dirname(self.save_file), exist_ok=True)
+            save_dir = os.path.dirname(self.save_file)
+            if save_dir and save_dir != '':
+                os.makedirs(save_dir, exist_ok=True)
             save_zf = zipfile.ZipFile(
                 self.save_file,
                 mode="a",

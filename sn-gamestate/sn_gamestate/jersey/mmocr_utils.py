@@ -267,11 +267,11 @@ def debug_save_image(
             x2, y2 = keypoints_dict[name2]
             cv2.line(debug_img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), color_skel, 2)
 
-    try:
-        cv2.imwrite(output_path, debug_img_bgr)
+    #try:
+    #    cv2.imwrite(output_path, debug_img_bgr)
         #print(f"[DEBUG] Salvou imagem com anotações em: {output_path}")
-    except Exception as e:
-        print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
+    #except Exception as e:
+    #    print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
 
 ###############################################################
 # 4) Funções OCR genérico e salvamento

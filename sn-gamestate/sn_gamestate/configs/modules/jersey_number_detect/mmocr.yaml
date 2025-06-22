@@ -1,2 +1,12 @@
 _target_: sn_gamestate.jersey.mmocr_api.MMOCR
 batch_size: 32
+model_dir: ${model_dir}
+ocr_decision_strategy: confidence_sum  # or 'confidence_sum'
+persistence_required: 3  # only used if sliding_persistence; 
+# the most frequent number in the sliding window must appear 
+# as majority in 3 consecutive windows before being accepted as the new track number
+min_votes : 3  # minimum number of votes required to accept a jersey number
+confidence_threshold : 0.9  # minimum confidence threshold for jersey number detection
+jnr_batch_frames : 7
+use_superres : True  # use super resolution to enhance jersey number detection
+debug_paddleocr : False
