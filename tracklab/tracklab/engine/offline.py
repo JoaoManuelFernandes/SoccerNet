@@ -33,9 +33,9 @@ class OfflineTrackingEngine(TrackingEngine):
             self.callback("on_module_end", task=model_name, detections=detections)
             if detections.empty:
                 return detections, image_pred
-            
-            if model_name.lower() == "mmocr":
-                jnr_module = self.models.get("MMOCR", None)
+
+            if model_name.lower() in ["trackletsocr"]:
+                jnr_module = self.models.get(model_name, None)
                 if jnr_module and hasattr(jnr_module, "finalize_ocr"):
                     detections = jnr_module.finalize_ocr(detections)
                 if hasattr(jnr_module, "cleanup"):

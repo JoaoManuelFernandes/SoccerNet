@@ -25,6 +25,7 @@ from paddleocr import PaddleOCR
 from mmengine.registry import init_default_scope
 init_default_scope('mmpose')
 
+
 #from mmpose.apis import MMPoseInferencer
 
 from tracklab.utils.collate import default_collate, Unbatchable
@@ -46,7 +47,10 @@ from sn_gamestate.jersey.tracklets_utils import (
     save_images_by_tracklet,
     COCO_SKELETON,
     compute_pose_metrics,
-    save_pose_debug_data,is_facing_away_trunk_motion
+    save_pose_debug_data,
+    is_facing_away_trunk_motion,
+    init_sam_model, extract_jersey_colors,
+    init_maskrcnn_model, init_densepose_model
 )
 
 
@@ -85,7 +89,7 @@ class TrackletsOCR(DetectionLevelModule):
         self.batch_size = batch_size
         self.model_dir = model_dir
         self.ocr_decision_strategy = ocr_decision_strategy
-        self.JNRDebug =False
+        self.JNRDebug =True
         self.imageDebug = False
         self.confidence_threshold = confidence_threshold
         self.jnr_batch_frames = jnr_batch_frames
@@ -230,9 +234,13 @@ class TrackletsOCR(DetectionLevelModule):
         self.score_threshold_2 = score_threshold_2
         self.angle_trunk_motion_threshold =angle_trunk_motion_threshold
 
+        self.sam_model = init_sam_model(checkpoint_path="/home/joao/soccernet/pretrained_models/sam/sam_vit_h_4b8939.pth", device=self.device)
+        self.maskrcnn_model = init_maskrcnn_model(device=self.device)
+        self.densepose_model = init_densepose_model()
 
         # Para análise: buffer para gravar orientação do tronco, direção do movimento, ângulo entre, etc.
         self.trunk_motion_debug = defaultdict(list)
+        self.jersey_feats_buffer = defaultdict(list)
     def no_jersey_number(self):
         return None, 0
 
@@ -340,6 +348,9 @@ class TrackletsOCR(DetectionLevelModule):
         detections['jersey_number_confidence'] = 0.0
         detections['ocr_tracklet_pose_jn']   = np.nan
         detections['ocr_tracklet_pose_conf'] = 0.0
+        detections['jersey_mean_rgb'] = None
+        detections['jersey_mean_hsv'] = None
+        detections['jersey_mean_lab'] = None
         log_timing('preparar_colunas', t_ini=t_ini, t_fim=time.perf_counter())
 
         # 2) Acumular imagens por tracklet
@@ -461,6 +472,44 @@ class TrackletsOCR(DetectionLevelModule):
                         skeleton=COCO_SKELETON,
                         debug_text="Costas detectadas (original + skeleton)"
                     )
+                    
+                     # --- 🔴 NOVO BLOCO: extrair embeddings de camisola ---
+                    # --- Extrair cores da camisola ---
+                    try:
+                        jersey_feats = {}
+                        for mode in ["sam", "densepose", "maskrcnn"]:
+                            feats = extract_jersey_colors(
+                                back_img, keypoints, mode=mode,
+                                sam_model=self.sam_model,
+                                densepose_model=self.densepose_model,
+                                maskrcnn_model=self.maskrcnn_model
+                            )
+                            if feats:
+                                jersey_feats[mode] = feats
+
+                        if jersey_feats:
+                            # guardar no buffer interno (auditoria / debug)
+                            self.jersey_feats_buffer[track_id].append({
+                                "frame_id": frame_id,
+                                **{f"{mode}_{k}": v
+                                for mode, fdict in jersey_feats.items()
+                                for k, v in fdict.items()}
+                            })
+
+                            # escolher a melhor modalidade (preferência: SAM > DensePose > MaskRCNN)
+                            feats_used = (
+                                jersey_feats.get("sam")
+                                or jersey_feats.get("densepose")
+                                or jersey_feats.get("maskrcnn")
+                            )
+
+                            if feats_used:
+                                mask = detections['image_id'] == frame_id
+                                detections.loc[mask, "jersey_mean_rgb"] = [list(feats_used["mean_rgb"])]
+                                detections.loc[mask, "jersey_mean_hsv"] = [list(feats_used["mean_hsv"])]
+                                detections.loc[mask, "jersey_mean_lab"] = [list(feats_used["mean_lab"])]
+                    except Exception as e:
+                        log.warning(f"[TrackletsOCR] Falha a extrair jersey feats para track {track_id}, frame {frame_id}: {e}")                   
                     cropped_list.append((frame_id, back_img))
                 else:
                     debug_filename_front = os.path.join(run_path, f"debug_pose/track_{track_id}_frame_{frame_id}_front.jpg")
@@ -601,21 +650,6 @@ class TrackletsOCR(DetectionLevelModule):
 
         return sr_bgr
 
-    def ensure_model_exists(self, model_path, download_url=None):
-        """
-        Garante que o modelo existe no caminho especificado. Faz download se necessário.
-        """
-        if not os.path.exists(model_path):
-            if download_url is None:
-                raise FileNotFoundError(f"Modelo não encontrado e download_url não fornecida: {model_path}")
-            import requests
-            print(f"Baixando modelo para {model_path} ...")
-            os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            r = requests.get(download_url, allow_redirects=True)
-            with open(model_path, 'wb') as f:
-                f.write(r.content)
-            print("Download concluído.")
-
     @torch.no_grad()
     def run_paddleocr_batch(self, track_images):
         if self.JNRDebug:
@@ -720,38 +754,32 @@ class TrackletsOCR(DetectionLevelModule):
         for track_id, frames_list in list(self.tracklet_images_global.items()):
             if not frames_list:
                 continue
-            # roda OCR nesses frames pendentes
             batch = [(track_id, fid, img) for fid, img in frames_list]
             result_dict = self.run_paddleocr_batch(batch)
             final_jn, final_conf = result_dict.get(track_id, (None, 0.0))
             prev_jn, prev_conf = self.best_by_track.get(track_id, (None, 0.0))
-            # usa should_replace para decidir atualização
             if self.should_replace(prev_jn, prev_conf, final_jn, final_conf, track_id=track_id):
                 self.best_by_track[track_id] = (final_jn, final_conf)
 
-        # 2) Zera colunas de saída e preenche com o melhor jersey por track
+        # 2) Zera colunas e preenche com melhor jersey por track
         detections['jersey_number_detection']  = None
         detections['jersey_number_confidence'] = 0.0
 
-        # --- NOVO: decisão final baseada no buffer de confiança ---
-        decision_log = []  # Para auditoria
+        decision_log = []
         for track_id in set(list(self.best_by_track.keys()) + list(self.confidence_sum_buffer.keys())):
             if track_id is None:
                 continue
             if self.ocr_decision_strategy == "confidence_sum":
-                conf_dict = {str(k): float(v) for k, v in self.confidence_sum_buffer[track_id].items() if k is not None and k != ''}
+                conf_dict = {str(k): float(v) for k, v in self.confidence_sum_buffer[track_id].items() if k}
                 if conf_dict:
-                    # Frequência de cada número no buffer de blocos (robustez real)
                     block_buffer = list(self.tracklet_detection_buffer[track_id])
                     det_freq = {}
                     for num in block_buffer:
                         det_freq[num] = det_freq.get(num, 0) + 1
-                    # Loga todas as somas para auditoria
                     for num, soma in conf_dict.items():
                         decision_log.append({"track_id": track_id, "number": num, "confidence_sum": soma, "freq": det_freq.get(num, 0)})
                     best_num = max(conf_dict, key=lambda k: conf_dict[k])
                     freq = det_freq.get(best_num, 0)
-                    # Só aceita se best_num aparece min_votes vezes seguidas no buffer de blocos
                     if freq >= self.min_votes and self.has_min_consecutive(block_buffer, best_num, self.min_votes):
                         max_conf = 0.0
                         for logs in self.tracklet_detection_logs.get(track_id, []):
@@ -761,13 +789,12 @@ class TrackletsOCR(DetectionLevelModule):
                     else:
                         self.best_by_track[track_id] = (None, 0.0)
             best_jn, best_conf = self.best_by_track.get(track_id, (None, 0.0))
-            if best_jn is None or track_id is None:
+            if best_jn is None:
                 continue
             mask = detections['track_id'] == track_id
             detections.loc[mask, 'jersey_number_detection']  = best_jn
             detections.loc[mask, 'jersey_number_confidence'] = best_conf
 
-        # Salva log detalhado da decisão do confidence_sum
         if self.ocr_decision_strategy == "confidence_sum" and decision_log:
             log_dir = os.path.join(run_path, "ocr_confidence_sum_decision_logs")
             os.makedirs(log_dir, exist_ok=True)
@@ -776,14 +803,12 @@ class TrackletsOCR(DetectionLevelModule):
             df_dec.to_csv(out_path, index=False)
             log.info(f"📄 Log de decisão do confidence_sum exportado para {out_path}")
 
-        # 3) (Opcional) Limpa o buffer de tracklets
+        # 3) Limpa buffer de tracklets
         self.tracklet_images_global.clear()
 
-        # 4) Exporta CSV “por track” baseado em best_by_track
+        # 4) Exporta CSV por track
         rows = [
-            {"track_id": tid,
-            "jersey_number_detection": jn,
-            "jersey_number_confidence": conf}
+            {"track_id": tid, "jersey_number_detection": jn, "jersey_number_confidence": conf}
             for tid, (jn, conf) in sorted(self.best_by_track.items())
             if jn is not None and tid is not None
         ]
@@ -795,17 +820,16 @@ class TrackletsOCR(DetectionLevelModule):
         else:
             log.info("⚠️ Nenhum jersey detectado para exportar em ocr_results_tracklet_pose_all.csv")
 
-        # 5) Exporta a comparação OCR-direto vs tracklet+pose (caso tenha sido usada em process)
+        # 5) Comparação OCR direto vs tracklet
         try:
             self.export_comparison_csv()
         except Exception as e:
             log.warning(f"[finalize_ocr] Falha ao exportar comparação OCR: {e}")
 
-        # 6) Exporta logs de debug de OCR, se houver
+        # 6) Debug OCR
         if self.debug_paddleocr and self.tracklet_debug_data:
             debug_dir = os.path.join(run_path, "debug_ocr")
             os.makedirs(debug_dir, exist_ok=True)
-            # debug por frame
             try:
                 df_dbg = pd.DataFrame([
                     {"track_id": tid, **entry}
@@ -817,8 +841,6 @@ class TrackletsOCR(DetectionLevelModule):
                 log.info(f"📄 OCR debug per frame salvo em: {path1}")
             except Exception as e:
                 log.warning(f"[finalize_ocr] Falha ao salvar ocr_debug_per_frame: {e}")
-
-            # resumo por track
             summary = []
             for tid, lst in self.tracklet_debug_data.items():
                 df_tmp = pd.DataFrame(lst).dropna(subset=['jersey_number','confidence'])
@@ -839,24 +861,20 @@ class TrackletsOCR(DetectionLevelModule):
                 except Exception as e:
                     log.warning(f"[finalize_ocr] Falha ao salvar ocr_debug_resumo_por_track: {e}")
 
-        # 7) Exporta métricas de pose coletadas em process()
-        #   Supondo que em self.pose_debug_data você acumulou dicts {"track_id", "frame_id", ... métricas ...}
+        # 7) Métricas de pose
         if self.JNRDebug:
             try:
                 from sn_gamestate.jersey.tracklets_utils import save_pose_debug_data
-                # salva CSVs em run_path/debug_pose_metrics/
                 save_pose_debug_data(self.pose_debug_data, run_path, prefix="pose_metrics")
-                # limpa buffer de pose
                 self.pose_debug_data.clear()
             except Exception as e:
                 log.warning(f"[finalize_ocr] Falha ao salvar métricas de pose: {e}")
 
-        # 8) Por fim, limpa best_by_track e debug data de OCR
+        # 8) Limpa best_by_track e debug OCR
         self.best_by_track.clear()
         self.tracklet_debug_data.clear()
 
-        # 9) Exporta logs detalhados de detecção por track/modelo
-        run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
+        # 9) Logs detalhados de OCR
         log_dir = os.path.join(run_path, "ocr_detections_by_track")
         os.makedirs(log_dir, exist_ok=True)
         for track_id, logs in self.tracklet_detection_logs.items():
@@ -867,23 +885,19 @@ class TrackletsOCR(DetectionLevelModule):
         self.tracklet_detection_logs.clear()
         self.tracklet_detection_buffer.clear()
 
-        # 10) Exporta buffer de confiança para auditoria (apenas se houver)
+        # 10) Buffers de soma de confiança
         if self.confidence_sum_buffer:
             conf_dir = os.path.join(run_path, "ocr_confidence_sum_logs")
             os.makedirs(conf_dir, exist_ok=True)
             for track_id, conf_dict in self.confidence_sum_buffer.items():
-                df = pd.DataFrame([
-                    {"number": k, "confidence_sum": v}
-                    for k, v in conf_dict.items()
-                ])
+                df = pd.DataFrame([{"number": k, "confidence_sum": v} for k, v in conf_dict.items()])
                 out_path = os.path.join(conf_dir, f"track_{track_id}_confidence_sum.csv")
                 df.to_csv(out_path, index=False)
             log.info(f"📄 Buffers de soma de confiança exportados para {conf_dir}")
             self.confidence_sum_buffer.clear()
 
-        # Após processar todos os tracklets, exporta CSVs de orientação do tronco para análise
+        # 11) Exporta CSVs de orientação do tronco
         if self.trunk_motion_debug:
-            run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
             trunk_dir = os.path.join(run_path, "debug_trunk_motion")
             os.makedirs(trunk_dir, exist_ok=True)
             for track_id, entries in self.trunk_motion_debug.items():
@@ -892,6 +906,20 @@ class TrackletsOCR(DetectionLevelModule):
                 df.to_csv(out_file, index=False)
                 log.info(f"Trunk motion debug salvo: {out_file}")
             self.trunk_motion_debug.clear()
+
+        # 12) Exporta embeddings de camisola
+        if self.jersey_feats_buffer:
+            feats_dir = os.path.join(run_path, "jersey_embeddings")
+            os.makedirs(feats_dir, exist_ok=True)
+            for track_id, entries in self.jersey_feats_buffer.items():
+                try:
+                    df_feats = pd.DataFrame(entries)
+                    out_file = os.path.join(feats_dir, f"jersey_embeddings_track_{track_id}.csv")
+                    df_feats.to_csv(out_file, index=False)
+                    log.info(f"📄 Jersey embeddings salvos: {out_file}")
+                except Exception as e:
+                    log.warning(f"Falha ao salvar embeddings para track {track_id}: {e}")
+            self.jersey_feats_buffer.clear()
 
         return detections
 

@@ -288,12 +288,12 @@ def save_images_by_tracklet(detections, images_np, metadatas, tracklet_images, o
         tracklet_images[track_id].append((frame_id, image_rgb))
 
         # Salva em disco
-        #tracklet_dir = os.path.join(output_dir, f'tracklet_{track_id}')
-        #os.makedirs(tracklet_dir, exist_ok=True)
+        tracklet_dir = os.path.join(output_dir, f'tracklet_{track_id}')
+        os.makedirs(tracklet_dir, exist_ok=True)
 
-        #image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
-        #filename = os.path.join(tracklet_dir, f'frame_{frame_id}.jpg')
-        #cv2.imwrite(filename, image_bgr) 
+        image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+        filename = os.path.join(tracklet_dir, f'frame_{frame_id}.jpg')
+        cv2.imwrite(filename, image_bgr) 
 
         idx += 1
 
@@ -404,3 +404,139 @@ def is_facing_away_trunk_motion(keypoints, keypoint_scores, motion_vec=None, ang
     angle_trunk_motion = float(np.degrees(np.arccos(dot)))
     logging.getLogger(__name__).info(f'[TRUNK_MOTION_LOG] angle_trunk_motion={angle_trunk_motion:.2f} (threshold={angle_trunk_motion_threshold})')
     return angle_trunk_motion > angle_trunk_motion_threshold
+
+# SAM (Segment Anything Model)
+def init_sam_model(checkpoint_path=None, device='cpu'):
+    """
+    Inicializa o modelo SAM (Segment Anything Model).
+    Requer: pip install segment-anything
+    """
+    try:
+        from segment_anything import SamPredictor, sam_model_registry
+        sam = sam_model_registry["vit_h"](checkpoint=checkpoint_path)
+        sam.to(device)
+        predictor = SamPredictor(sam)
+        return predictor
+    except ImportError:
+        print("[ERROR] segment-anything não instalado. Instale com: pip install segment-anything")
+        return None
+
+def sam_segment_jersey(predictor, image_rgb, keypoints=None):
+    """
+    Segmenta a região da camisola usando SAM.
+    Usa keypoint central do tronco como prompt (se disponível).
+    """
+    if predictor is None:
+        return image_rgb
+    h, w, _ = image_rgb.shape
+    if keypoints and 'left_shoulder' in keypoints and 'right_shoulder' in keypoints and 'left_hip' in keypoints and 'right_hip' in keypoints:
+        # Ponto central do tronco
+        sx = (keypoints['left_shoulder'][0] + keypoints['right_shoulder'][0]) / 2
+        sy = (keypoints['left_shoulder'][1] + keypoints['right_shoulder'][1]) / 2
+        hx = (keypoints['left_hip'][0] + keypoints['right_hip'][0]) / 2
+        hy = (keypoints['left_hip'][1] + keypoints['right_hip'][1]) / 2
+        cx = int((sx + hx) / 2)
+        cy = int((sy + hy) / 2)
+        input_point = np.array([[cx, cy]])
+        input_label = np.array([1])
+        mask, _, _ = predictor.predict(image_rgb, input_point=input_point, input_label=input_label, multimask_output=False)
+        return image_rgb * mask[..., None]
+    else:
+        # fallback: segmenta pessoa inteira
+        mask, _, _ = predictor.predict(image_rgb, input_point=None, input_label=None, multimask_output=False)
+        return image_rgb * mask[..., None]
+
+# Mask R-CNN
+def init_maskrcnn_model(device='cpu'):
+    """
+    Inicializa Mask R-CNN pré-treinado (COCO).
+    Requer: pip install torch torchvision
+    """
+    import torch
+    import torchvision
+    model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
+    model.eval()
+    model.to(device)
+    return model
+
+def maskrcnn_segment_jersey(model, image_rgb):
+    """
+    Segmenta a pessoa e extrai a máscara do tronco usando Mask R-CNN.
+    """
+    import torch
+    image = torch.from_numpy(image_rgb.transpose(2,0,1)).float() / 255.0
+    image = image.unsqueeze(0)
+    with torch.no_grad():
+        outputs = model(image)
+    # Assume que a primeira máscara é da pessoa principal
+    if outputs and 'masks' in outputs[0] and len(outputs[0]['masks']) > 0:
+        mask = outputs[0]['masks'][0,0].cpu().numpy()
+        mask = (mask > 0.5).astype(np.uint8)
+        return image_rgb * mask[..., None]
+    return image_rgb
+
+# DensePose
+def init_densepose_model():
+    """
+    Inicializa DensePose (MMDetection ou detectron2).
+    Requer: pip install detectron2 densepose
+    """
+    try:
+        from detectron2.engine import DefaultPredictor
+        from detectron2.config import get_cfg
+        from densepose import add_densepose_config
+        cfg = get_cfg()
+        add_densepose_config(cfg)
+        cfg.merge_from_file("configs/densepose_rcnn_R_50_FPN_s1x.yaml")
+        cfg.MODEL.WEIGHTS = "densepose_rcnn_R_50_FPN_s1x.pkl"
+        predictor = DefaultPredictor(cfg)
+        return predictor
+    except ImportError:
+        print("[ERROR] detectron2 ou densepose não instalado.")
+        return None
+
+def densepose_segment_jersey(predictor, image_rgb):
+    """
+    Segmenta o torso usando DensePose.
+    """
+    if predictor is None:
+        return image_rgb
+    outputs = predictor(image_rgb[..., ::-1])
+    if 'densepose' in outputs and 'coarse_segm' in outputs['densepose']:
+        mask = outputs['densepose']['coarse_segm'] == 2  # 2 = torso
+        return image_rgb * mask[..., None]
+    return image_rgb
+
+# Atualiza extract_jersey_region para usar as funções reais
+
+def extract_jersey_region(image_rgb, keypoints=None, mode='heuristic', sam_model=None, densepose_model=None, maskrcnn_model=None):
+    if mode == 'heuristic':
+        if keypoints is not None:
+            return crop_back_region(image_rgb, keypoints)
+        else:
+            return image_rgb
+    elif mode == 'sam' and sam_model is not None:
+        return sam_segment_jersey(sam_model, image_rgb, keypoints)
+    elif mode == 'densepose' and densepose_model is not None:
+        return densepose_segment_jersey(densepose_model, image_rgb)
+    elif mode == 'maskrcnn' and maskrcnn_model is not None:
+        return maskrcnn_segment_jersey(maskrcnn_model, image_rgb)
+    else:
+        return image_rgb
+
+def extract_jersey_colors(image_rgb, keypoints=None, mode='heuristic', sam_model=None, densepose_model=None, maskrcnn_model=None):
+    """
+    Extrai cor média da região da camisola em RGB, HSV e CIELAB.
+    """
+    jersey_crop = extract_jersey_region(image_rgb, keypoints, mode, sam_model, densepose_model, maskrcnn_model)
+    if jersey_crop is None or jersey_crop.size == 0:
+        return None
+    # RGB
+    mean_rgb = np.mean(jersey_crop.reshape(-1, 3), axis=0)
+    # HSV
+    hsv = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2HSV)
+    mean_hsv = np.mean(hsv.reshape(-1, 3), axis=0)
+    # CIELAB
+    lab = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2LAB)
+    mean_lab = np.mean(lab.reshape(-1, 3), axis=0)
+    return {'mean_rgb': mean_rgb, 'mean_hsv': mean_hsv, 'mean_lab': mean_lab}

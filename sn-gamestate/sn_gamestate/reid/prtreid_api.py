@@ -119,15 +119,17 @@ class PRTReId(DetectionLevelModule):
 
         return batch
 
+
     @torch.no_grad()
     def process(self, batch, detections: pd.DataFrame, metadatas: pd.DataFrame):
         im_crops = batch["img"]
         im_crops = [im_crop.cpu().detach().numpy() for im_crop in im_crops]
+
         if "masks" in batch:
-            external_parts_masks = batch["masks"]
-            external_parts_masks = external_parts_masks.cpu().detach().numpy()
+            external_parts_masks = batch["masks"].cpu().detach().numpy()
         else:
             external_parts_masks = None
+
         if self.feature_extractor is None:
             self.feature_extractor = FeatureExtractor(
                 self.cfg,
@@ -135,21 +137,21 @@ class PRTReId(DetectionLevelModule):
                 device=self.device,
                 image_size=(self.cfg.data.height, self.cfg.data.width),
                 model=self.model,
-                verbose=False,  # FIXME @Vladimir
+                verbose=False,
             )
-        reid_result = self.feature_extractor(
-            im_crops, external_parts_masks=external_parts_masks
-        )
+
+        reid_result = self.feature_extractor(im_crops, external_parts_masks=external_parts_masks)
+
         embeddings, visibility_scores, body_masks, _, role_cls_scores = extract_test_embeddings(
             reid_result, self.test_embeddings
         )
-        
+
         role_scores_ = []
         role_scores_.append(role_cls_scores['globl'].cpu() if role_cls_scores is not None else None)
         role_scores_ = torch.cat(role_scores_, 0) if role_scores_[0] is not None else None
-        roles = [torch.argmax(i).item() for i in role_scores_]
+        roles = [torch.argmax(i).item() for i in role_scores_] if role_scores_ is not None else []
         roles = [self.inverse_role_mapping[index] for index in roles]
-        role_confidence = [torch.max(i).item() for i in role_scores_]
+        role_confidence = [torch.max(i).item() for i in role_scores_] if role_scores_ is not None else []
 
         embeddings = embeddings.cpu().detach().numpy()
         visibility_scores = visibility_scores.cpu().detach().numpy()
@@ -164,17 +166,47 @@ class PRTReId(DetectionLevelModule):
                 )
             visibility_scores = np.float32(kp_visibility_scores)
 
+        # 🔴 NOVO: concatenar cores da camisola se existirem em detections
+        jersey_rgb = []
+        jersey_hsv = []
+        jersey_lab = []
+        for idx in detections.index:
+            row = detections.loc[idx]
+            if "jersey_mean_rgb" in row and row["jersey_mean_rgb"] is not None:
+                rgb = np.array(row["jersey_mean_rgb"], dtype=np.float32)
+                hsv = np.array(row.get("jersey_mean_hsv", [0,0,0]), dtype=np.float32)
+                lab = np.array(row.get("jersey_mean_lab", [0,0,0]), dtype=np.float32)
+            else:
+                rgb = np.zeros(3, dtype=np.float32)
+                hsv = np.zeros(3, dtype=np.float32)
+                lab = np.zeros(3, dtype=np.float32)
+            jersey_rgb.append(rgb)
+            jersey_hsv.append(hsv)
+            jersey_lab.append(lab)
+
+        jersey_rgb = np.stack(jersey_rgb, axis=0)
+        jersey_hsv = np.stack(jersey_hsv, axis=0)
+        jersey_lab = np.stack(jersey_lab, axis=0)
+
+        # Concatenar no embedding final
+        embeddings_with_colors = np.concatenate([embeddings, jersey_rgb, jersey_hsv, jersey_lab], axis=1)
+
         reid_df = pd.DataFrame(
             {
                 "embeddings": list(embeddings),
+                "embeddings_with_colors": list(embeddings_with_colors),  # 🔴 NOVO
                 "visibility_scores": list(visibility_scores),
                 "body_masks": list(body_masks),
                 "role_detection": roles,
                 "role_confidence": role_confidence,
+                "jersey_mean_rgb": list(jersey_rgb),
+                "jersey_mean_hsv": list(jersey_hsv),
+                "jersey_mean_lab": list(jersey_lab),
             },
             index=detections.index,
         )
         return reid_df
+
 
     def train(self):
         self.engine, self.model = build_torchreid_model_engine(self.cfg)
