@@ -1,4 +1,4 @@
-import os
+import os , requests
 import cv2
 import numpy as np
 import pandas as pd
@@ -259,10 +259,26 @@ def debug_save_image(
     #except Exception as e:
     #    print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
 
-###############################################################
-# 4) Funções OCR genérico e salvamento
-###############################################################
-# As funções save_ocr_results e alternative_jersey_number_detection foram removidas pois não são utilizadas no pipeline.
+def get_or_download_model(target_dir, filename, url):
+    """
+    Garante que 'filename' existe em 'target_dir'. 
+    Caso contrário, baixa de 'url'.
+    Retorna o caminho completo para o ficheiro.
+    """
+    os.makedirs(target_dir, exist_ok=True)
+    filepath = os.path.join(target_dir, filename)
+
+    if not os.path.exists(filepath):
+        print(f"[INFO] Baixando {filename} de {url} ...")
+        r = requests.get(url, allow_redirects=True)
+        r.raise_for_status()
+        with open(filepath, "wb") as f:
+            f.write(r.content)
+        print(f"[INFO] Salvo em {filepath}")
+    else:
+        print(f"[INFO] Modelo {filename} já existe em {filepath}")
+
+    return filepath
 
 def save_images_by_tracklet(detections, images_np, metadatas, tracklet_images, output_dir):
     #if not os.path.exists(output_dir):
@@ -406,19 +422,26 @@ def is_facing_away_trunk_motion(keypoints, keypoint_scores, motion_vec=None, ang
     return angle_trunk_motion > angle_trunk_motion_threshold
 
 # SAM (Segment Anything Model)
-def init_sam_model(checkpoint_path=None, device='cpu'):
+def init_sam_model(checkpoint_path=None, device="cpu"):
     """
-    Inicializa o modelo SAM (Segment Anything Model).
-    Requer: pip install segment-anything
+    Inicializa o modelo SAM.
     """
     try:
         from segment_anything import SamPredictor, sam_model_registry
+
+        if checkpoint_path is None:
+            checkpoint_path = get_or_download_model(
+                "/home/joao/soccernet/pretrained_models/sam",
+                "sam_vit_h_4b8939.pth",
+                "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+            )
+
         sam = sam_model_registry["vit_h"](checkpoint=checkpoint_path)
         sam.to(device)
-        predictor = SamPredictor(sam)
-        return predictor
+        return SamPredictor(sam)
+
     except ImportError:
-        print("[ERROR] segment-anything não instalado. Instale com: pip install segment-anything")
+        print("[ERROR] segment-anything não instalado. pip install git+https://github.com/facebookresearch/segment-anything.git")
         return None
 
 def sam_segment_jersey(predictor, image_rgb, keypoints=None):
@@ -428,22 +451,37 @@ def sam_segment_jersey(predictor, image_rgb, keypoints=None):
     """
     if predictor is None:
         return image_rgb
+
     h, w, _ = image_rgb.shape
-    if keypoints and 'left_shoulder' in keypoints and 'right_shoulder' in keypoints and 'left_hip' in keypoints and 'right_hip' in keypoints:
+
+    # Carrega a imagem no SAM predictor
+    predictor.set_image(image_rgb)
+
+    if keypoints and 'left_shoulder' in keypoints and 'right_shoulder' in keypoints and \
+       'left_hip' in keypoints and 'right_hip' in keypoints:
+
         # Ponto central do tronco
         sx = (keypoints['left_shoulder'][0] + keypoints['right_shoulder'][0]) / 2
         sy = (keypoints['left_shoulder'][1] + keypoints['right_shoulder'][1]) / 2
         hx = (keypoints['left_hip'][0] + keypoints['right_hip'][0]) / 2
-        hy = (keypoints['left_hip'][1] + keypoints['right_hip'][1]) / 2
+        hy = (keypoints['right_hip'][1] + keypoints['right_hip'][1]) / 2
         cx = int((sx + hx) / 2)
         cy = int((sy + hy) / 2)
-        input_point = np.array([[cx, cy]])
-        input_label = np.array([1])
-        mask, _, _ = predictor.predict(image_rgb, input_point=input_point, input_label=input_label, multimask_output=False)
+
+        mask, _, _ = predictor.predict(
+            point_coords=np.array([[cx, cy]]),
+            point_labels=np.array([1]),
+            multimask_output=False
+        )
         return image_rgb * mask[..., None]
+
     else:
-        # fallback: segmenta pessoa inteira
-        mask, _, _ = predictor.predict(image_rgb, input_point=None, input_label=None, multimask_output=False)
+        # fallback: segmenta pessoa inteira (bounding box default)
+        mask, _, _ = predictor.predict(
+            point_coords=None,
+            point_labels=None,
+            multimask_output=False
+        )
         return image_rgb * mask[..., None]
 
 # Mask R-CNN
@@ -476,36 +514,85 @@ def maskrcnn_segment_jersey(model, image_rgb):
     return image_rgb
 
 # DensePose
-def init_densepose_model():
+def init_densepose_model(device="cuda"):
     """
-    Inicializa DensePose (MMDetection ou detectron2).
-    Requer: pip install detectron2 densepose
+    Inicializa DensePose com Detectron2.
     """
     try:
         from detectron2.engine import DefaultPredictor
         from detectron2.config import get_cfg
         from densepose import add_densepose_config
+
+        base_dir = "/home/joao/soccernet/pretrained_models/densepose"
+
+        cfg_path = get_or_download_model(
+            base_dir,
+            "densepose_rcnn_R_50_FPN_s1x.yaml",
+            "https://raw.githubusercontent.com/facebookresearch/detectron2/main/projects/DensePose/configs/densepose_rcnn_R_50_FPN_s1x.yaml"
+        )
+        weights_path = "/home/joao/soccernet/pretrained_models/densepose/model_final_162be9.pkl"
+
+
         cfg = get_cfg()
         add_densepose_config(cfg)
-        cfg.merge_from_file("configs/densepose_rcnn_R_50_FPN_s1x.yaml")
-        cfg.MODEL.WEIGHTS = "densepose_rcnn_R_50_FPN_s1x.pkl"
-        predictor = DefaultPredictor(cfg)
-        return predictor
-    except ImportError:
-        print("[ERROR] detectron2 ou densepose não instalado.")
+        cfg.merge_from_file(cfg_path)
+        cfg.MODEL.WEIGHTS = weights_path
+        cfg.MODEL.DEVICE = device
+
+        return DefaultPredictor(cfg)
+
+    except ImportError as e:
+        print(f"[ERROR] DensePose não instalado corretamente: {e}")
         return None
 
-def densepose_segment_jersey(predictor, image_rgb):
+def densepose_segment_jersey(predictor, image_rgb, save_prefix="densepose"):
     """
-    Segmenta o torso usando DensePose.
+    Segmenta o torso usando DensePose e grava debug.
+    - Grava um mapa colorido com todas as partes.
+    - Grava a máscara só do torso.
     """
     if predictor is None:
         return image_rgb
-    outputs = predictor(image_rgb[..., ::-1])
-    if 'densepose' in outputs and 'coarse_segm' in outputs['densepose']:
-        mask = outputs['densepose']['coarse_segm'] == 2  # 2 = torso
-        return image_rgb * mask[..., None]
-    return image_rgb
+
+    outputs = predictor(image_rgb[..., ::-1])  # BGR -> RGB
+    instances = outputs["instances"]
+
+    if not instances.has("pred_densepose"):
+        return image_rgb
+
+    dp_out = instances.pred_densepose
+
+    # Labels das partes (h x w)
+    labels = dp_out.labels.cpu().numpy()
+    h, w = labels.shape
+
+    # Criar cores aleatórias para cada label
+    colors = np.random.randint(0, 255, (labels.max() + 1, 3), dtype=np.uint8)
+    color_mask = colors[labels]
+
+    # Blend com imagem original
+    blended = cv2.addWeighted(image_rgb, 0.5, color_mask, 0.5, 0)
+
+    # Diretório de debug
+    run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
+    save_dir = os.path.join(run_path, "densepose")
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Gravar mapa de labels colorido
+    cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_labels.png"),
+                cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+
+    # ⚠️ Torso = confirmar número certo no teu modelo!
+    torso_label = 1  # ajusta depois de veres o mapa colorido
+    torso_mask = (labels == torso_label).astype(np.uint8) * 255
+    torso_img = image_rgb * (torso_mask[..., None] > 0)
+
+    # Gravar torso isolado
+    cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_torso.png"),
+                cv2.cvtColor(torso_img, cv2.COLOR_RGB2BGR))
+
+    return torso_img
+
 
 # Atualiza extract_jersey_region para usar as funções reais
 
@@ -524,19 +611,42 @@ def extract_jersey_region(image_rgb, keypoints=None, mode='heuristic', sam_model
     else:
         return image_rgb
 
-def extract_jersey_colors(image_rgb, keypoints=None, mode='heuristic', sam_model=None, densepose_model=None, maskrcnn_model=None):
+def extract_jersey_colors(
+    image_rgb, keypoints=None,
+    mode='heuristic',
+    sam_model=None, densepose_model=None, maskrcnn_model=None,
+    run_path=None, track_id=None, frame_id=None, debug_save=False
+):
     """
     Extrai cor média da região da camisola em RGB, HSV e CIELAB.
+    Se debug_save=True, grava a imagem segmentada usada (heuristic/sam/densepose/maskrcnn).
     """
-    jersey_crop = extract_jersey_region(image_rgb, keypoints, mode, sam_model, densepose_model, maskrcnn_model)
+    jersey_crop = extract_jersey_region(
+        image_rgb, keypoints, mode,
+        sam_model=sam_model,
+        densepose_model=densepose_model,
+        maskrcnn_model=maskrcnn_model
+    )
+
     if jersey_crop is None or jersey_crop.size == 0:
         return None
-    # RGB
+
+    # --- DEBUG SAVE da imagem segmentada usada ---
+    if debug_save and run_path is not None and track_id is not None and frame_id is not None:
+        save_dir = os.path.join(run_path, "debug_jersey")
+        os.makedirs(save_dir, exist_ok=True)
+        seg_path = os.path.join(save_dir, f"track{track_id}_frame{frame_id}_{mode}.jpg")
+        try:
+            cv2.imwrite(seg_path, cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2BGR))
+        except Exception as e:
+            print(f"[DEBUG] Falhou a salvar {mode} segmentation: {e}")
+
+    # Extrai cores
     mean_rgb = np.mean(jersey_crop.reshape(-1, 3), axis=0)
-    # HSV
     hsv = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2HSV)
     mean_hsv = np.mean(hsv.reshape(-1, 3), axis=0)
-    # CIELAB
     lab = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2LAB)
     mean_lab = np.mean(lab.reshape(-1, 3), axis=0)
+
     return {'mean_rgb': mean_rgb, 'mean_hsv': mean_hsv, 'mean_lab': mean_lab}
+

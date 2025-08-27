@@ -27,9 +27,20 @@ defaults:
 # - If loading a tracking state from disk, remove modules whose outputs are already provided in the loaded state
 # Use 'pipeline: []' for an empty pipeline (e.g. when loading all tracking results from a saved .pklz tracker state)
 pipeline:
+    - jersey_number_detect
     - team
     - team_side
 
+#pipeline:
+#  - bbox_detector
+#  - reid
+#  - track
+#  - pitch
+#  - calibration
+#  - jersey_number_detect
+#  - tracklet_agg
+#  - team
+#  - team_side
 
 
 
