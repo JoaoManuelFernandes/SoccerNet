@@ -443,7 +443,7 @@ class TrackletsOCR(DetectionLevelModule):
                     try:
                         jersey_feats = {}
                         feats = extract_jersey_colors(
-                            back_img, keypoints, mode= self.jersey_segmentation_mode,
+                            raw_img, keypoints, mode= self.jersey_segmentation_mode,
                             sam_model=self.sam_model,
                             densepose_model=self.densepose_model,
                             maskrcnn_model=self.maskrcnn_model,

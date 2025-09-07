@@ -546,11 +546,6 @@ def init_densepose_model(device="cuda"):
         return None
 
 def densepose_segment_jersey(predictor, image_rgb, save_prefix="densepose"):
-    """
-    Segmenta o torso usando DensePose e grava debug.
-    - Grava um mapa colorido com todas as partes.
-    - Grava a máscara só do torso.
-    """
     if predictor is None:
         return image_rgb
 
@@ -562,37 +557,34 @@ def densepose_segment_jersey(predictor, image_rgb, save_prefix="densepose"):
 
     dp_out = instances.pred_densepose
 
-    # Labels das partes (h x w)
-    labels = dp_out.labels.cpu().numpy()
-    h, w = labels.shape
+    # Verifica se tens fine_segm ou coarse_segm
+    if hasattr(dp_out, "fine_segm"):
+        labels = dp_out.fine_segm.argmax(dim=0).cpu().numpy()
+    elif hasattr(dp_out, "coarse_segm"):
+        labels = dp_out.coarse_segm.argmax(dim=0).cpu().numpy()
+    else:
+        print("[ERROR] DensePose output não tem fine_segm nem coarse_segm.")
+        return image_rgb
 
-    # Criar cores aleatórias para cada label
+    h, w = labels.shape
     colors = np.random.randint(0, 255, (labels.max() + 1, 3), dtype=np.uint8)
     color_mask = colors[labels]
-
-    # Blend com imagem original
     blended = cv2.addWeighted(image_rgb, 0.5, color_mask, 0.5, 0)
 
-    # Diretório de debug
     run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
     save_dir = os.path.join(run_path, "densepose")
     os.makedirs(save_dir, exist_ok=True)
-
-    # Gravar mapa de labels colorido
     cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_labels.png"),
                 cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
 
-    # ⚠️ Torso = confirmar número certo no teu modelo!
-    torso_label = 1  # ajusta depois de veres o mapa colorido
+    # ⚠️ Ajusta o torso_label de acordo com a legenda DensePose
+    torso_label = 1
     torso_mask = (labels == torso_label).astype(np.uint8) * 255
     torso_img = image_rgb * (torso_mask[..., None] > 0)
-
-    # Gravar torso isolado
     cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_torso.png"),
                 cv2.cvtColor(torso_img, cv2.COLOR_RGB2BGR))
 
     return torso_img
-
 
 # Atualiza extract_jersey_region para usar as funções reais
 
