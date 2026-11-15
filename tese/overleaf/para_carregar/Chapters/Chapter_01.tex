@@ -1,0 +1,411 @@
+\chapter{Estado da Arte}\label{cap:estado-arte}
+
+Este capítulo revê o trabalho existente nas duas tarefas em que a dissertação se foca,
+isto é, o reconhecimento do número de camisola e a atribuição da equipa de cada jogador,
+ambas propostas no âmbito do desafio SoccerNet. Antes de as abordar em detalhe, importa
+enquadrar cada tarefa no \emph{pipeline} geral da reconstrução do estado de jogo e
+apresentar as métricas utilizadas, que servem tanto para avaliar o sistema completo como
+cada tarefa isoladamente. Em vez de percorrer os estudos um a um, a revisão está
+organizada por tema, para deixar claras as principais linhas de investigação e os seus
+limites.
+
+\section{Reconstrução do Estado de Jogo}\label{sec:sistemas_gsr}
+
+O conceito de reconstrução do estado de jogo foi proposto por \citet{somers2024soccernet}
+como uma tarefa de referência na área da análise computacional do desporto, mais
+propriamente no futebol. Os autores definiram, em simultâneo, a concetualização do
+problema, o \emph{dataset} SoccerNet-GSR e a arquitetura de referência. Em termos práticos, o
+objetivo consiste em converter a informação visual de vários \emph{frames} de um vídeo monocular
+numa projeção bidimensional do terreno de jogo (Figura~\ref{fig:gsr-minimap}). Esta
+transformação exige não só a deteção e localização contínuas das linhas do campo, de forma
+a enquadrar espacialmente cada interveniente, mas também a sua atribuição relativamente à
+equipa, à função desempenhada e ao número da camisola.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{gamestate-example.jpg}
+    \caption{Exemplo de reconstrução do estado de jogo, com a posição, a equipa
+    e o número de camisola projetados num mapa bidimensional do campo. Adaptado
+    de \citet{somers2024soccernet}.}
+    \label{fig:gsr-minimap}
+\end{figure}
+
+Como ponto de partida para o \emph{pipeline} apresentado, a \emph{baseline} do SoccerNet-GSR recorre ao \emph{framework} TrackLab. Esta ferramenta adota uma estrutura modular configurada para
+coordenar, de forma sequencial, a deteção, a reidentificação, o \emph{tracking} dos jogadores e a
+calibração da câmara (Figura~\ref{fig:gsr-pipeline}). Neste ecossistema, a etapa final de
+identificação desdobra-se em três vertentes. O modelo PRTreID extrai características
+associadas à identidade, à equipa e à função de cada jogador. A ferramenta MMOCR reconhece
+os números nas camisolas. Por fim, um algoritmo de agrupamento (\emph{clustering}) opera sobre as
+representações visuais para inferir a que equipa pertence cada atleta. A presente
+dissertação foca-se criticamente nestes dois últimos componentes, uma vez que constituem
+os principais pontos de estrangulamento (\emph{bottlenecks}) de desempenho na solução proposta
+por \citet{somers2024soccernet}.
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{gsr_baseline_architecture.jpg}
+    \caption{Arquitetura de referência do SoccerNet-GSR. Adaptado
+    de \citet{somers2024soccernet}.}
+    \label{fig:gsr-pipeline}
+\end{figure}
+
+Esta mesma arquitetura modular acaba por revelar as suas próprias fragilidades. Como
+demonstraram os relatórios das edições seguintes do desafio \citep{cioppa2024soccernet,
+giancola2025soccernet}, qualquer ganho real na projeção do mapa tático (\emph{minimap})
+depende diretamente da qualidade da identificação local, e não apenas da capacidade de
+detetar ou seguir os atletas. O percurso da solução vencedora da edição de 2024
+\citep{golovkin2025minimap} ajuda a perceber porquê. Ao elevar o
+GS-HOTA de $23.36\%$ da solução de referência para $63.81\%$, a sua estratégia converge,
+de forma independente, com as duas intuições centrais desta dissertação. A primeira é que o
+reconhecimento do número ganha em afastar-se de abordagens de OCR genéricas e adotar
+soluções que integram conhecimento específico do domínio. A segunda é que a atribuição da
+equipa ganha uma nova robustez quando se combina a aparência visual com a consistência
+temporal e o contexto espacial do jogador. Há, no entanto, uma diferença de
+âmbito. Essa solução vencedora distribuiu os seus ganhos por vários módulos, da deteção à
+calibração, ao \emph{tracking} e ao pós-processamento. A presente dissertação, pelo
+contrário, concentra-se exclusivamente nas duas tarefas de identificação, mantendo a deteção,
+o \emph{tracking} e a calibração tal como na \emph{baseline}, e a reidentificação com o
+seu modelo intacto, apenas acrescida de um descritor de cor ao serviço da atribuição da
+equipa. É neste espaço, e com esta delimitação
+deliberada, que o trabalho se situa. O objetivo é isolar e redesenhar os dois componentes mais frágeis, de modo a que qualquer melhoria
+observada possa ser atribuída, sem ambiguidade, a essas alterações, e não a uma otimização
+global do sistema.
+
+Vale a pena situar este trabalho no percurso, ainda curto, da própria tarefa. A reconstrução do estado
+de jogo foi disputada em duas edições do desafio. Na primeira, em 2024, participaram
+dezasseis equipas com trinta e quatro submissões, e a solução vencedora elevou o GS-HOTA da
+solução de referência de $23.36\%$ para $63.81\%$ \citep{cioppa2024soccernet}. Na segunda,
+em 2025, catorze equipas apresentaram sessenta e seis submissões sobre uma solução de
+referência atualizada, com $29.01\%$, e a vencedora obteve $63.90\%$, com a solução vencedora de 2024 em
+segundo lugar, com o mesmo valor de $63.81\%$ \citep{giancola2025soccernet}. Dois traços deste percurso importam para o que se segue. O
+primeiro é que o valor máximo praticamente não se moveu entre as duas edições, apesar da
+mudança de paradigma na leitura do número, sinal de que a tarefa está longe de resolvida e de
+que nenhum módulo isolado a desbloqueia. O segundo é que os
+organizadores registam, na edição de 2025, três tendências comuns aos sistemas
+melhor classificados. São elas o recurso a características CLIP e OSNet para a
+reidentificação, a função e a equipa, o alisamento temporal da calibração por fluxo ótico, e a
+aplicação de modelos de visão e linguagem à leitura do número
+\citep{giancola2025soccernet}. A edição de 2026 do desafio já não incluiu a tarefa, substituída
+por cinco outras, entre as quais a deteção de ações centrada no jogador, que reutiliza a
+equipa e o número de camisola como identificadores \citep{cioppa2026soccernet}. A comparação
+com estas classificações é retomada no Capítulo~\ref{cap:resultados}, com as reservas que a
+diferença entre o conjunto de teste público e o conjunto do desafio impõe.
+
+\section{Reconhecimento de Número de Camisola}
+
+O reconhecimento automático do número da camisola a partir de um vídeo de uma única
+câmara constitui um desafio complexo na área da visão por computador, estando estritamente
+condicionado por restrições estruturais. Devido à distância operacional da câmara em
+relação aos jogadores e ao relvado, a resolução e definição dos dígitos é frequentemente
+reduzida. Adicionalmente, as dinâmicas de movimento dos jogadores resultam em oclusões
+frequentes, deformações nos tecidos das camisolas e variações extremas de pose, fazendo
+com que os números raramente se encontrem num plano frontal e legível. Para mitigar estas
+dificuldades, as abordagens propostas na literatura dividem-se, genericamente, em duas
+grandes vertentes metodológicas.
+
+\subsection{Abordagens por OCR Local e Modelos de Pose}
+
+Os primeiros trabalhos abordaram a tarefa como um problema de deteção e classificação
+de dígitos. \citet{gerke2015soccer} foram dos primeiros a aplicar redes neuronais
+convolucionais (\emph{Convolutional Neural Networks}, CNN) ao reconhecimento do número
+de camisola, estabelecendo a viabilidade da abordagem. \citet{liu2019poseguided} deram
+um passo importante com uma R-CNN guiada por pose (\emph{pose-guided} R-CNN). Substituíram
+a \emph{Region Proposal Network} (RPN) tradicional por uma variante de três classes
+(fundo, pessoa e dígito) e incorporaram os \emph{keypoints} do corpo humano no
+refinamento das propostas, melhorando a localização dos dígitos mesmo em poses
+dinâmicas. O modelo foi validado num conjunto de dados criado especificamente para o
+efeito, com anotações detalhadas de caixas de pessoa e de dígito.
+
+Esta linha foi consolidada por \citet{liu2022jede} com o JEDE, um detetor universal que
+combina uma \emph{Feature Pyramid Network} (FPN) com uma \emph{Region Proposal Network}
+(RPN) e um ramo guiado por pose (\emph{pose-guided branch}) para as propostas de dígitos.
+Testado em futebol e basquetebol, superou métodos clássicos como o Faster R-CNN e o Mask
+TextSpotter, sobretudo na precisão e revocação da deteção.
+
+Mais recentemente, \citet{koshkina2024general} propuseram uma abordagem distinta, que
+trata o reconhecimento do número como um caso de reconhecimento de texto em cena
+(\emph{scene text recognition}). Em vez de detetar cada dígito isoladamente, encadeiam
+um classificador de legibilidade (\emph{legibility classifier}), que descarta as
+\emph{frames} onde o número não está legível, com um modelo de reconhecimento de texto,
+agregando depois as leituras ao longo do \emph{tracklet}. Os autores disponibilizam ainda
+um conjunto de dados público, com anotações de legibilidade, e avaliam o desempenho tanto
+ao nível da imagem como do \emph{tracklet}. Esta estratégia, ao filtrar previamente as
+imagens úteis e ao consolidar a decisão no tempo, aproxima-se da lógica adotada nesta
+dissertação.
+
+\subsection{Abordagens temporais e por \emph{keyframes}}
+
+Uma linha de investigação distinta tira partido da dimensão temporal do vídeo, uma vez que
+a mesma camisola é vista em muitos \emph{frames}, mas nem todos úteis.
+\citet{balaji2023jersey} introduziram um módulo de identificação de \emph{keyframes} numa
+rede espácio-temporal, concentrando assim a análise nos \emph{frames} que contêm mais
+informação e classificando cada dígito separadamente através de uma função de perda
+multitarefa (\emph{multi-task loss}). A estratégia lida bem com oclusões e movimento
+rápido, mas tem uma limitação que os próprios autores reconhecem. Ao tratar cada número
+como um todo, e não dígito a dígito, o modelo dificilmente reconhece combinações que não
+tenham surgido durante o treino.
+
+O trabalho seguinte da mesma equipa, \citet{balaji2024dmae}, refina a abordagem com
+\emph{Domain-Guided Masked Autoencoders} (d-MAE), treinados com desfoque de movimento
+para simular condições reais, e um descodificador \emph{transformer} temporal. Os ganhos
+reportados são modestos mas ilustrativos, cerca de $1{.}39\%$ com o módulo de agrupamento
+e $0{.}77\%$ na localização, e reforçam uma ideia central. Em baixa resolução, a cor por
+si só é insuficiente, e importa extrair características profundas e robustas para detetar
+dígitos pequenos.
+
+\subsection{Métodos apresentados ao desafio SoccerNet}\label{sec:jnr-desafio}
+
+As duas linhas anteriores descrevem a investigação publicada em conferências e revistas.
+Existe, porém, um segundo corpo de trabalho que raramente chega a esses canais e que é
+particularmente informativo para esta dissertação, o das soluções apresentadas às
+sucessivas edições do desafio SoccerNet. Interessam aqui não pelas classificações que
+obtiveram, mas pelas opções técnicas que revelam, e sobretudo pela mudança de paradigma
+que documentam ao longo de três anos. Salvo indicação em contrário, as descrições que se
+seguem resumem os textos que as próprias equipas submeteram aos relatórios oficiais
+\citep{cioppa2023soccernet, cioppa2024soccernet, giancola2025soccernet}.
+
+A tarefa foi disputada isoladamente na edição de 2023, sobre um conjunto de
+\emph{tracklets} já recortados, com quinze equipas e 157 submissões. Esses \emph{tracklets} vinham do conjunto SoccerNet-Tracking e a tarefa estava
+formulada como classificação, com uma classe adicional para o número não visível, pelo que
+os valores dessa edição não são comparáveis com os aqui reportados. O que dela se retira é
+o método. Segundo os organizadores, a generalidade das equipas adotou um mesmo
+procedimento em três fases. Primeiro uma deteção de texto sobre o recorte do jogador, com
+recurso a modelos como o DBNet++, o MMOCR, o DeepSolo ou o YOLO. Depois um reconhecimento
+do texto localizado, por motores de OCR afinados para o efeito, tipicamente o PP-OCRv3 ou
+o PaddleOCR. E por fim uma votação maioritária que consolida as leituras de todas as
+imagens de um mesmo \emph{tracklet} numa decisão única. Daqui retiram-se duas observações. A
+primeira é que a agregação temporal por votação, que também se adota neste trabalho, aqui restrita às
+leituras em que o modelo está seguro, já
+era prática corrente da comunidade em 2023, e não constitui portanto uma novidade. A
+segunda é que toda esta família assenta em tratar o número como texto arbitrário, que é
+exatamente a limitação que a Secção~\ref{sec:met-jnr} procura ultrapassar.
+
+Na primeira edição da reconstrução do estado de jogo, em 2024, as equipas melhor
+classificadas abandonaram o OCR genérico e passaram a treinar modelos próprios,
+especializados no número de camisola. \citet{golovkin2025minimap} organizam este panorama
+em duas categorias, as adaptações de técnicas de OCR de uso geral, que localizam
+e depois leem o texto, e as soluções desenhadas para o domínio desportivo. Sobre as
+primeiras notam que a exatidão se degrada com jogadores distantes, com oclusões e com
+orientações laterais, e sobre as segundas que ganham exatidão à custa de exigirem treino
+específico para cada conjunto de dados. A própria solução vencedora ilustra bem a segunda
+categoria, pois prescinde de detetar cada dígito com uma caixa delimitadora e usa em seu
+lugar uma rede residual modificada, que recebe recortes de $32\times32$ píxeis e possui
+duas cabeças de classificação, uma que decide se existe um dígito inicial e qual, e outra
+que prevê o segundo dígito. A estrutura permite reconhecer o número mesmo quando parte
+dele está ocluída, e dispensa a anotação de caixas por dígito. A equipa classificada em
+segundo lugar seguiu caminho semelhante, treinando um detetor dedicado de dígitos sobre
+dados públicos e cerca de mil imagens anotadas de propósito, e uma terceira equipa
+recorreu ao CLIP em duas fases, com um modelo a decidir se há número visível e outro a
+identificá-lo, afinados sobre três mil caixas anotadas manualmente. O traço comum a todas
+é o custo de anotação, uma vez que cada uma exigiu a construção de um conjunto de treino
+próprio, o que representa um esforço incompatível com as condições em que esta dissertação
+foi realizada.
+
+A edição de 2025 marca uma mudança clara. Os organizadores registam a aplicação
+bem-sucedida de modelos de visão e linguagem à leitura do número, e as duas soluções mais
+relevantes nesse sentido recorreram ao LLaMA-3.2-Vision e ao Qwen2-VL-Instruct. A solução
+vencedora, descrita em detalhe por \citet{oo2026broadcast2pitch}, formula a identificação
+completa do atleta como uma tarefa de geração autorregressiva multimodal. Em vez de treinar
+um classificador por atributo, entrega ao modelo o recorte do jogador acompanhado de uma
+instrução em linguagem natural que lhe pede a função, o número e a cor do equipamento, e lê
+a resposta como uma sequência de símbolos. Os autores justificam a escolha com três razões.
+A primeira é a generalização a atributos nunca vistos, que torna o reconhecimento aberto. A
+segunda é a redução do esforço de anotação, uma vez que basta ajustar a instrução. A terceira é a
+possibilidade de transpor a solução para outros desportos.
+
+Este mesmo trabalho fornece a comparação mais direta de que há registo entre as três
+estratégias, por as avaliar dentro de um único \emph{pipeline} e sobre o mesmo conjunto de
+teste. A combinação de modelos especializados por atributo, com o PRTreID para a função, o
+EasyOCR para o número e uma rede residual para a cor, obtém $18{.}11\%$ de GS-HOTA. A
+substituição por um modelo de visão e linguagem eleva o valor para $60{.}13\%$ com o CLIP e
+para $61{.}48\%$ com o LLaMA-3.2-Vision. Ainda que estes valores digam respeito ao sistema
+completo, e não isoladamente à leitura do número, a distância entre a primeira linha e as
+restantes é demasiado grande para ser atribuída a outra coisa. Em sentido contrário, uma
+das equipas melhor classificadas manteve-se no reconhecimento de texto convencional,
+isolando primeiro a região do tronco a partir dos pontos de interesse do ViTPose e
+aplicando depois o PARSeq, o que mostra que a via clássica continua viável quando a região
+entregue ao leitor é a correta.
+
+Vários participantes convergem, por fim, num mesmo diagnóstico. A equipa da Universidade de
+Tóquio encerra o seu relato reconhecendo que, tal como na solução de referência, a maior
+dificuldade permaneceu no reconhecimento do número, e aponta os modelos multimodais como o
+caminho a seguir. A demonstração mais completa é, contudo, a de \citet{oo2026broadcast2pitch},
+que decompõem a métrica oficial por atributo dentro do seu próprio sistema. Avaliando apenas
+a posição no campo obtêm $79{.}52\%$. Acrescentando um atributo de cada vez à posição, o
+valor desce marginalmente para $79{.}20\%$ com a função e para $73{.}58\%$ com a equipa, mas
+cai para $64{.}70\%$ com o número de camisola, e com os quatro atributos em conjunto fica em
+$61{.}48\%$. Os autores concluem que a leitura do número é o principal estrangulamento do
+sistema, e explicam-no pela natureza da transmissão televisiva,
+onde os dígitos surgem desfocados, ocluídos ou visíveis em poucas \emph{frames} de cada
+\emph{tracklet}. Trata-se de confirmação externa e quantificada da premissa em que assenta
+esta dissertação, e que motiva a escolha dos dois módulos a intervencionar.
+
+\section{Atribuição da equipa}
+
+A atribuição da equipa consiste em decidir a que equipa pertence cada jogador, quase
+sempre por análise de características visuais. As abordagens diferem sobretudo no tipo de
+sinal em que assentam.
+
+\subsection{Métodos baseados em cor}
+
+A cor do equipamento é a característica de escolha mais direta para separar equipas.
+\citet{naik2022deepplayer} propuseram o DeepPlayer-Track, que combina informação de cor
+com a distância do cosseno num \emph{tracker} do tipo SORT, apoiado num detetor YOLOv4.
+O método distingue jogadores de forma robusta mesmo sob oclusão, mas os próprios autores
+identificam uma fragilidade reveladora. Quando a cor do equipamento do árbitro não é a
+esperada, o sistema não o deteta e confunde-o com um jogador. É um sintoma claro do
+limite das abordagens puramente cromáticas, pois, quando as cores se aproximam ou fogem
+ao previsto, o sinal deixa de ser fiável.
+
+\subsection{Métodos por aprendizagem e agrupamento}
+
+Para ganhar robustez, outros trabalhos substituem a cor por características aprendidas por
+redes neuronais. \citet{alhejaily2023team} segmentam primeiro o campo e atribuem as
+equipas com \emph{autoencoders} convolucionais treinados de ponta a ponta sobre dados não
+rotulados, sem conhecimento prévio das cores de cada equipa, o que lhes confere capacidade
+de generalização entre jogos diferentes. Ainda sem depender da cor,
+\citet{istasse2019associative} propuseram aprender \emph{embeddings} associativos que
+aproximam, no espaço latente, os jogadores da mesma equipa e afastam os das equipas
+opostas, dispensando rótulos de cor explícitos. É também a filosofia da solução de
+referência do desafio, que agrupa os jogadores sobre as representações visuais geradas
+pelo PRTreID \citep{somers2024soccernet}.
+
+\subsection{Métodos apresentados ao desafio SoccerNet}\label{sec:equipa-desafio}
+
+As duas subsecções anteriores abordam a atribuição da equipa como um problema de separar os
+jogadores em dois grupos a partir da sua aparência. As soluções apresentadas ao desafio, por
+atuarem dentro de um sistema completo e serem avaliadas pela métrica oficial, revelam que o
+problema tem na verdade duas etapas distintas, e que a segunda tem sido tratada com muito
+menos atenção do que a primeira.
+
+\citet{golovkin2025minimap} sintetizam o panorama de forma útil. A generalidade dos sistemas
+começa por extrair, para cada jogador, uma representação da sua aparência, seja um histograma
+de cor, seja um vetor de reidentificação treinado por aprendizagem contrastiva. Essas
+representações são depois agrupadas por métodos não supervisionados, tipicamente o
+\emph{k-means} ou o DBSCAN, em dois a cinco grupos, consoante se pretenda separar apenas as
+duas equipas ou também os árbitros e os guarda-redes. A alternativa a esta estrutura é a
+aprendizagem de representações discriminativas da equipa, como a proposta por
+\citet{istasse2019associative}, que dispensa o agrupamento por produzir diretamente vetores
+que aproximam colegas de equipa e afastam adversários.
+
+Na edição de 2024, a equipa vencedora substituiu o agrupamento genérico por um modelo
+treinado para o efeito, uma OSNet ajustada a 111 equipamentos distintos, e passou a procurar
+cinco grupos em vez de dois, as duas equipas, os árbitros e os dois guarda-redes. O
+procedimento é revelador do cuidado que a tarefa exige, pois para estimar os grupos das
+equipas consideram-se apenas os jogadores a menos de trinta metros do centro do campo, de
+modo a excluir os guarda-redes, que são depois identificados separadamente dentro das áreas.
+Na edição de 2025 predominam duas orientações, a delegação da tarefa no mesmo modelo
+multimodal que lê o número de camisola, como faz a solução vencedora, que pede ao modelo a
+cor do equipamento e agrupa depois por essa cor, e o reforço da informação de aparência,
+como na solução que segmenta a silhueta do jogador e dela extrai um descritor com as cores do
+equipamento e as respetivas áreas.
+
+O percurso da equipa que ficou em último lugar em 2024 também ensina alguma coisa.
+Propôs resolver a função e a equipa globalmente para todo o vídeo, através de uma rede
+siamesa, de um agrupamento por \emph{k-means} com vários valores de $k$ e de uma floresta
+aleatória que escolhia o agrupamento mais plausível a partir de características de contexto
+de jogo. O resultado ficou abaixo da solução de referência, e os autores atribuem-no ao facto
+de terem treinado o modelo com posições da anotação e o terem avaliado sobre deteções reais.
+É um exemplo claro de como a qualidade das etapas anteriores condiciona tudo o que vem
+depois.
+
+Separar os jogadores em dois grupos resolve, no entanto, apenas metade do problema. Como a
+métrica oficial exige que cada jogador seja identificado como pertencendo à equipa da
+esquerda ou à da direita, é ainda necessário decidir qual dos dois grupos ocupa cada lado, e
+é aqui que as soluções mais divergem. A abordagem mais comum consiste em comparar a posição
+horizontal média dos jogadores de cada grupo, atribuindo o lado direito àquele cuja média
+está mais à direita, e é o que faz a solução vencedora de 2025, que assume explicitamente
+que os jogadores tendem a permanecer do seu lado do campo. A solução vencedora de 2024
+identifica, contudo, uma fragilidade desta suposição, pois substitui a média única por uma
+votação, em que cada \emph{frame} vota no grupo que nela surge mais à direita, e justifica a
+alteração afirmando que a média simples ao longo de todo o clipe pode falhar em sequências
+curtas ou quando apenas parte do campo está visível. Uma terceira via recorre à posição do
+guarda-redes, atribuindo essa função ao jogador mais afastado dentro de cada área e
+submetendo depois o resultado a uma otimização que penaliza configurações impossíveis, como
+a existência de dois guarda-redes do mesmo lado. Por honestidade de atribuição, deve
+ficar claro que o recurso ao guarda-redes como referência de lado não é original deste
+trabalho, uma vez que já se encontra nesta solução e, de forma implícita, na vencedora de
+2024, que deteta os guarda-redes separadamente.
+
+Duas lacunas atravessam, ainda assim, todas estas soluções. A primeira é que nenhuma
+quantifica com que frequência a suposição da posição média falha, pois a vencedora de 2024
+afirma que falha sem indicar em quantos casos nem em que condições, e sem essa medida não é
+possível saber se o problema é marginal ou estrutural. A segunda é que a etapa de atribuição
+do lado nunca é avaliada isoladamente, diluindo-se o seu efeito na métrica global, que agrega
+a localização, o \emph{tracking}, a função, o número e a equipa. O Capítulo~\ref{cap:resultados}
+responde a ambas, medindo sobre os 160 vídeos das três divisões do conjunto de dados a
+frequência com que o critério da posição média se inverte, e avaliando separadamente o
+contributo de cada nível da cascata de decisão descrita na Secção~\ref{sec:mapeamento}.
+
+\section{Métricas de Avaliação}\label{sec:metricas}
+
+A avaliação da reconstrução do estado de jogo suscita desafios particulares. Localizar
+corretamente cada jogador no campo é apenas parte do problema. Torna-se igualmente
+fundamental identificar quem cada um efetivamente é, ou seja, determinar o número de
+camisola, a equipa e a função no jogo. Para responder a esta dupla exigência, a métrica
+oficial do desafio, o GS-HOTA, foi introduzida por \citet{somers2024soccernet} em
+simultâneo com a própria tarefa. Derivada do HOTA \citep{luiten2021hota}, uma métrica
+consolidada no \emph{tracking} de múltiplos objetos, o GS-HOTA estende o conceito original
+ao incorporar a dimensão da identidade, articulando a precisão da localização espacial com
+a exatidão dos atributos do jogador. A diferença em relação ao HOTA clássico é
+determinante. Para que uma deteção seja considerada válida, o GS-HOTA exige a
+correspondência integral de todos os atributos com a verdade de referência (\emph{ground
+truth}). A falha num único atributo penaliza a deteção, o que torna esta métrica
+particularmente rigorosa e sensível a erros de identificação.
+
+Por ser uma métrica global, o GS-HOTA reflete o desempenho conjunto de todos os
+componentes, da deteção ao \emph{tracking} e da calibração à identificação, o que
+dificulta o isolamento do contributo de cada um. Uma forma de contornar esta limitação,
+adotada por \citet{oo2026broadcast2pitch} e retomada no Capítulo~\ref{cap:resultados},
+consiste em calcular a métrica com apenas parte dos atributos ativados, começando pela
+posição e acrescentando a função, a equipa e o número, de modo que a diferença entre dois
+cálculos consecutivos mede o custo de cada atributo. Para avaliar separadamente as duas
+tarefas em estudo, recorre-se ainda a métricas complementares, largamente aceites na
+literatura. A precisão, a revocação e o F1 medem a qualidade da classificação, isto é,
+quantas leituras ou atribuições estão corretas e a que custo de omissões. A exatidão dá a
+fração de acertos. A precisão média (mAP) aplica-se quando a tarefa é formulada como
+deteção. A conjugação dos dois tipos de métricas, a oficial para o efeito no sistema
+completo e as dedicadas para o desempenho isolado de cada sub-tarefa, permite uma
+avaliação ao mesmo tempo comparável ao desafio e informativa quanto à contribuição
+específica de cada melhoria.
+
+\section{Síntese e Lacunas Identificadas}
+
+A análise da literatura revela um padrão claro. A fragilidade do sinal visual de baixo
+nível leva a generalidade dos trabalhos a incorporar mecanismos adicionais de extração de
+características, tais como \emph{autoencoders}, arquiteturas de \emph{backbone} mais
+robustas ou estratégias de agrupamento mais elaboradas. Observa-se igualmente uma
+evolução incremental do estado da arte, na qual os métodos mais recentes procuram refinar
+abordagens prévias, como atesta a transição das redes R-CNN guiadas por pose para o JEDE,
+ou a sucessão do reconhecimento de \emph{keyframes} pelos \emph{Masked Autoencoders}.
+
+Confrontando esta literatura com as soluções apresentadas ao desafio, identificam-se duas
+lacunas que motivam o presente trabalho:
+
+\begin{enumerate}
+    \item \textbf{Desequilíbrio de foco.} A investigação na área tem priorizado as
+    componentes de \emph{tracking} e deteção de jogadores, relegando a sua identificação,
+    designadamente o número da camisola e a atribuição da equipa, para um plano
+    secundário. Contudo, é precisamente nesta vertente que a própria solução de referência
+    (\emph{baseline}) apresenta as suas maiores limitações \citep{somers2024soccernet},
+    diagnóstico que várias equipas do desafio confirmaram de forma independente ao
+    identificarem a leitura do número como a dificuldade que lhes restou.
+
+    \item \textbf{Ausência de avaliação isolada dentro do \emph{pipeline} completo.} As
+    duas famílias de trabalho falham em sentidos opostos. Os estudos académicos avaliam os
+    seus métodos de forma isolada e em \emph{datasets} próprios, sem os submeterem a um
+    \emph{pipeline} completo de reconstrução do estado de jogo nem à métrica oficial. As
+    soluções do desafio, pelo contrário, são avaliadas no \emph{pipeline} completo e sob a
+    métrica oficial, mas otimizam todos os módulos em simultâneo, o que impede saber quanto
+    do ganho se deve à identificação e quanto se deve à deteção ou à calibração.
+\end{enumerate}
+
+É esta segunda lacuna que define a estratégia experimental adotada. Ao intervir unicamente
+na leitura do número e na atribuição da equipa, e ao deixar a deteção, o \emph{tracking} e a
+calibração exatamente como na \emph{baseline}, e a reidentificação com o seu modelo intacto,
+qualquer variação de desempenho passa a ser atribuível sem ambiguidade ao que foi alterado. O trabalho
+inscreve-se assim na mesma direção técnica das soluções mais competitivas, em particular no
+recurso a modelos multimodais para a leitura do número, mas distingue-se pelo enfoque numa
+implementação sob fortes restrições de recursos e por um desenho experimental que permite
+isolar o contributo das duas tarefas em estudo.

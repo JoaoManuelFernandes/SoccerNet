@@ -1,0 +1,189 @@
+% ============================================================================
+% NOVA SECÇÃO para o capítulo ESTADO DA ARTE.
+% Colocar ANTES da secção "SÍNTESE E LACUNAS IDENTIFICADAS", que passa a ser
+% a última do capítulo.
+% ============================================================================
+
+\section{SISTEMAS PROPOSTOS NO DESAFIO SOCCERNET-GSR}
+\label{sec:sistemas_gsr}
+
+As secções anteriores percorreram a literatura por tema, reunindo trabalhos publicados
+em conferências e revistas. Sucede que a reconstrução do estado de jogo é uma tarefa
+recente e que boa parte do trabalho mais relevante não se encontra nesses canais, mas
+sim nos relatórios anuais do desafio SoccerNet. São sistemas completos, construídos
+sobre o mesmo conjunto de dados, a mesma \emph{baseline} e a mesma métrica, o que faz
+deles o termo de comparação mais direto para esta dissertação. Realizaram-se até à data
+duas edições da tarefa, documentadas por Cioppa et al. (2024) e por Giancola et al.
+(2025), e é sobre elas que incide esta secção.
+
+Antes de as percorrer, convém fixar uma ressalva que se aplica a todos os valores aqui
+citados. A classificação oficial é apurada no conjunto de \emph{challenge}, cujas
+anotações são reservadas, e não no conjunto de teste, de anotações públicas, que é o
+usado neste trabalho. Os valores servem, por isso, para caracterizar abordagens e
+tendências, e não para comparação numérica direta.
+
+\subsection{EDIÇÃO DE 2024}
+
+A primeira edição reuniu 16 equipas e 34 submissões, e elevou o GS-HOTA de 23.36\% da
+\emph{baseline} para 63.81\% da solução vencedora.
+
+A equipa \textbf{Constructor tech} (63.81\%), cuja abordagem é detalhada em Golovkin et al.
+(2025), reconstruiu praticamente todo o \emph{pipeline}. A deteção passou a assentar num
+modelo YOLOv5, e a calibração resulta de duas etapas encadeadas, uma primeira estimativa
+dos parâmetros da câmara por um modelo híbrido de rede convolucional e \emph{transformer},
+seguida de um refinamento por um modelo de pontos de referência do campo, uma ResNet50 com
+74 pontos, arbitrado por um mecanismo de votação sobre o erro de reprojeção. O
+\emph{tracking} organiza-se em três fases, a saber, deteção de equipa, seguimento em bruto
+e pós-processamento. A função de cada interveniente é decidida por um modelo dedicado de
+identificação de equipa, uma OSNet treinada sobre 111 equipamentos distintos, que atribui
+uma de cinco funções possíveis. A dimensão do esforço é reveladora, pois o salto para os
+63.81\% resulta de intervir em todas as etapas em simultâneo, incluindo o treino de modelos
+de raiz sobre dados próprios.
+
+A equipa \textbf{UPCxMobius} (43.15\%), que apresentou o seu trabalho sob o título
+\emph{No bells, More Whistles}, seguiu uma estratégia mais próxima da adotada nesta
+dissertação, uma vez que partiu da TrackLab e se limitou a substituir três componentes.
+Trocou o método de calibração por um processo hierárquico de geração de pontos de
+referência que explora as propriedades geométricas do campo, apoiado numa rede
+codificador-descodificador HRNetv2. Retreinou o detetor de pessoas sobre cerca de 2000
+imagens anotadas manualmente a partir de vídeos do SoccerNet, passando a classificar
+diretamente cada deteção como jogador, guarda-redes ou árbitro. Por fim, treinou um
+detetor dedicado de dígitos de camisola sobre dados públicos e cerca de 1000 imagens
+próprias, combinando depois os dígitos reconhecidos para formar o número. Vale a pena
+sublinhar o contraste com a via seguida neste trabalho, pois onde esta equipa optou por
+um detetor de dígitos treinado para o efeito, a presente dissertação recorre a um modelo
+multimodal genérico guiado pela pose.
+
+A equipa \textbf{Robo Space} (26.92\%) manteve igualmente a TrackLab como estrutura de
+base, afinou um YOLOv8 sobre um conjunto próprio, refinou o modelo de reidentificação
+BPBReID e acrescentou um mecanismo de atenção temporal global, seguido de suavização
+temporal das deteções para eliminar ruído.
+
+A equipa \textbf{playbox x NUSG} (21.26\%) é interessante menos pelo resultado do que
+pelo diagnóstico que produziu. Afinou um YOLOv8X para a deteção e corrigiu um defeito na
+implementação da calibração, que excluía o círculo central do cálculo do erro de
+reprojeção, acrescentando ainda uma filtragem temporal que usa o ângulo de rolamento como
+indicador de erro, partindo do princípio de que uma câmara de transmissão não deve
+apresentar rolamento. Para o número de camisola construiu um método em duas fases assente
+no CLIP, com um modelo a detetar a presença do número e outro a identificá-lo, afinados
+sobre 3000 caixas anotadas manualmente, e recorreu ao GPT-4o para refinar as funções, as
+equipas e os números. Apesar de uma melhoria de 4\% no conjunto de teste, o sistema não
+superou a \emph{baseline} no conjunto de \emph{challenge}, e os próprios autores concluem
+que a calibração e a leitura do número continuam a ser as etapas com maior margem.
+
+A equipa \textbf{eidos.ai} (8.92\%) deixou o registo mais instrutivo de todos. Concentrou
+o esforço na classificação de função e de equipa, resolvendo-a globalmente para o vídeo em
+vez de decidir tracklet a tracklet, através de uma rede siamesa que produz representações
+das caixas delimitadoras, de um agrupamento por k-means com vários valores de k e de uma
+floresta aleatória que escolhe o agrupamento mais plausível a partir de características de
+contexto de jogo. O resultado ficou abaixo da \emph{baseline}, e os autores atribuem-no ao
+facto de o modelo ter sido treinado com posições da anotação de referência e avaliado sobre
+deteções reais, necessariamente imprecisas. É um exemplo claro de como a qualidade das
+etapas anteriores condiciona tudo o que vem depois, e não uma falha do método em si.
+
+\subsection{EDIÇÃO DE 2025}
+
+A segunda edição contou com 14 equipas e 66 submissões. A \emph{baseline}, entretanto
+melhorada para 29.01\%, foi superada por 12 equipas, e o melhor resultado subiu ligeiramente
+para 63.90\%.
+
+A equipa vencedora, \textbf{KIST-GSR} (63.90\%), deteta os intervenientes com um YOLO-X,
+segue-os com o Deep-EIoU apoiado em representações de reidentificação da OSNet e projeta-os
+no campo através de um modelo de pontos de referência que considera vários \emph{frames}.
+A contribuição mais distintiva está na forma como trata a identidade, formulada como uma
+tarefa de geração autorregressiva multimodal resolvida pelo LLaMA-3.2-Vision, que estima a
+função, o número de camisola e a cor a partir de instruções em linguagem natural, o que lhe
+confere capacidade de reconhecimento em conjunto aberto. Os \emph{tracklets} iniciais são
+depois refinados por uma estratégia de divisão e fusão, em que as divisões decorrem da
+consistência das identidades previstas e as fusões da semelhança de reidentificação sob
+restrições espácio-temporais. A equipa é atribuída por agrupamento da cor da camisola
+seguido da comparação da posição horizontal média de cada grupo, assumindo que os jogadores
+tendem a manter-se do seu lado, e o resultado é consolidado por votação maioritária dentro
+de cada tracklet.
+
+A equipa \textbf{lianyou} (62.76\%) deteta pessoas com um YOLOv12 e as linhas do campo com
+um RT-DETR próprio, treinado para 27 categorias de linha. A calibração combina uma correção
+de distorção radial com o PnLCalib, reduz os parâmetros da câmara a quatro grandezas e
+suaviza-os no tempo. O seguimento parte do IOF-Tracker e melhora a previsão de movimento do
+filtro de Kalman com fluxo ótico de Farneback, sobretudo nos movimentos bruscos da câmara.
+
+A equipa \textbf{Playbox \& MIXI} (61.64\%) voltou a partir da TrackLab, substituindo os
+módulos por alternativas recentes. Usa o RF-DETR na deteção, que reporta superar a família
+YOLO, representações CLIP-ReID na reidentificação e uma cadeia de seguimento composta pelo
+BoT-SORT e pela associação global de \emph{tracklets}. Para o número de camisola isola a
+região do tronco a partir dos pontos de interesse do ViTPose e reconhece os dígitos com o
+PARSeq, depois de rejeitar valores atípicos. A calibração estende o BroadTrack propagando
+os parâmetros ao longo do tempo por fluxo ótico. Merece nota a forma como resolve a função
+de guarda-redes, atribuída por posição, ao jogador mais afastado dentro das áreas, seguida
+de uma otimização que penaliza configurações impossíveis, como a existência de dois
+guarda-redes do mesmo lado.
+
+A equipa \textbf{eidos.ai} (46.24\%) apresenta a abordagem mais próxima da adotada nesta
+dissertação. Recorre ao Qwen2-VL-Instruct, da mesma família do modelo aqui utilizado, mas
+em vez de classificar cada deteção isoladamente entrega ao modelo uma sequência longa de
+deteções dispostas em grelha e deixa-o raciocinar sobre elas, com a possibilidade de invocar
+uma função de ampliação para inspecionar intervalos específicos antes de decidir o número.
+O mesmo mecanismo é usado para identificar o árbitro, e o agrupamento foi alterado para
+procurar um melhor equilíbrio entre o número de \emph{tracklets} de cada equipa.
+
+A equipa \textbf{UTokyo Football Lab} (40.13\%) trabalhou sobretudo a qualidade da imagem
+de entrada. Aplicou remoção de desfoque com o DeblurGAN-v2, afinou um YOLOv8x, segmentou
+as deteções para isolar a silhueta do jogador e dela extraiu um descritor de dez dimensões
+com as cores do equipamento e as respetivas áreas, que passou a alimentar a reidentificação,
+a função e a equipa. É particularmente relevante para esta dissertação a conclusão com que
+os autores encerram, ao reconhecerem que, tal como na \emph{baseline}, a maior dificuldade
+permaneceu no reconhecimento do número de camisola, e ao apontarem os modelos multimodais
+como o caminho a seguir.
+
+A equipa de \textbf{Hyungjung Kim et al.} (36.90\%) introduziu uma ideia de natureza
+diferente, ao explorar uma restrição do próprio domínio. Partindo do princípio de que num
+lance não existem mais do que 24 identidades distintas, 22 jogadores e 2 árbitros, usou
+essa unicidade para tornar a associação de identidades mais fiável, combinando-a com
+remoção de desfoque, compensação do movimento da câmara por fluxo ótico e um detetor
+afinado sobre o SoccerNet-GSR.
+
+Por fim, a equipa do \textbf{Laboratory for Biosignal Processing} (28.45\%) dedicou-se
+exclusivamente à calibração, refinando a homografia ao longo do vídeo. Identifica os
+\emph{frames} de inicialização fiáveis comparando uma segmentação do campo por U-Net com a
+que resulta da homografia estimada pelo NBJW, propaga os pontos por fluxo ótico de
+Lucas-Kanade e atualiza a homografia por RANSAC, reportando ganhos até 4\% sobre a
+calibração de referência, sobretudo nos \emph{frames} pobres em linhas.
+
+\subsection{LEITURA TRANSVERSAL E POSICIONAMENTO DESTE TRABALHO}
+
+Percorridas as duas edições, destacam-se quatro padrões, e todos eles ajudam a situar o
+que aqui se propõe.
+
+O primeiro é que o retreino do detetor se tornou prática corrente. Quase todos os sistemas
+acima afinam o detetor sobre dados próprios ou anotados de raiz, e os organizadores da
+edição de 2025 registam-no explicitamente como norma. Ora, a deteção é precisamente o
+módulo que esta dissertação decidiu não tocar, e é razoável admitir que boa parte da
+distância que separa os 60\% dos primeiros classificados do valor aqui obtido se explique
+por essa diferença de âmbito, e não pela qualidade dos módulos de identificação.
+
+O segundo é o peso da calibração. Duas equipas dedicaram-lhe a totalidade do seu esforço e
+quase todas as restantes a substituíram ou reforçaram, com destaque para a introdução do
+fluxo ótico como forma de estabilizar os parâmetros ao longo do tempo. Também aqui o
+presente trabalho manteve o módulo original.
+
+O terceiro é a adoção generalizada de modelos multimodais de visão e linguagem para a
+leitura do número. Em 2024 as abordagens ainda passavam por detetores de dígitos treinados
+para o efeito ou por modelos do tipo CLIP, ao passo que em 2025 os organizadores registam o
+uso bem-sucedido do LLaMA-Vision e do Qwen2-VL-Instruct, e a equipa vencedora resolve toda a
+identidade por essa via. A opção tomada nesta dissertação, decidida de forma independente e
+por razões de restrição de memória, coincide portanto com a direção que o estado da arte
+veio a seguir.
+
+O quarto padrão é o reconhecimento, por várias equipas, de que a leitura do número continua
+a ser o elo mais fraco. A equipa da Universidade de Tóquio afirma-o de forma direta, e a
+playbox chega à mesma conclusão pela via da experimentação. Isto sustenta, com fonte
+independente, a escolha de âmbito feita neste trabalho.
+
+Resta uma diferença que merece registo. Nenhuma das descrições publicadas destas soluções
+menciona um passo de recorte da região dorsal guiado pela estimativa de pose antes de
+entregar a imagem ao modelo de leitura. As equipas de 2025 que usam modelos multimodais
+alimentam-nos com o recorte do jogador ou com sequências de deteções, e a única que isola
+o tronco, a Playbox \& MIXI, fá-lo para alimentar um motor de reconhecimento de texto
+convencional e não um modelo multimodal. O contributo aqui proposto situa-se exatamente
+nesse ponto, ou seja, na conjugação do recorte anatómico guiado por pose com a leitura
+multimodal e a agregação temporal por votação.

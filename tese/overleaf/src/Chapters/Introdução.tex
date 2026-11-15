@@ -1,0 +1,76 @@
+\chapter{Introdução}\label{cap:introducao}
+
+Enquanto modalidade com a maior projeção mediática e económica a nível mundial, o futebol tem
+assistido a uma adoção acelerada de soluções de visão por computador e aprendizagem automática.
+Clubes, federações e entidades de \emph{broadcast} apostam progressivamente em ferramentas que
+permitam modelar o comportamento das equipas, antever dinâmicas de jogo e sustentar a decisão
+tática em evidência quantitativa, em detrimento de uma análise estritamente empírica. Neste
+contexto, a extração automática de informação estruturada a partir do sinal visual de transmissão
+assumiu-se como um fator claramente diferenciador.
+
+É neste contexto que se enquadra a reconstrução do estado de jogo (\emph{Game State
+Reconstruction}, GSR), formalizada por \citet{somers2024soccernet}. Trata-se de uma tarefa de
+natureza integradora, cujo objetivo é reconstruir, a partir de um vídeo de câmara única, uma
+representação bidimensional do campo onde cada interveniente é caracterizado pela sua posição, pela
+equipa a que pertence, pela função que desempenha (jogador, guarda-redes ou árbitro) e pelo número
+de camisola. Reunida num único mapa, esta informação permite seguir cada jogador ao longo do jogo,
+ler as formações e analisar as decisões táticas.
+
+A reconstrução do estado de jogo constitui uma tarefa intrinsecamente complexa, uma vez que articula
+num único \emph{pipeline} múltiplas sub-tarefas de elevada exigência individual. Inclui a deteção e
+o \emph{tracking} dos jogadores, a sua reidentificação após oclusões ou saídas de campo, a
+calibração da câmara para o mapeamento no relvado e, por fim, a sua identificação individual. É
+precisamente nesta última etapa que se concentram dois dos componentes mais vulneráveis do
+\emph{pipeline}, o reconhecimento do número de camisola e a atribuição da equipa. Em ambos os
+casos, o sinal visual disponível é frequentemente escasso e ruidoso, caracterizando-se por números
+de pequena dimensão, oclusões parciais, ângulos desfavoráveis e equipamentos cujas cores nem sempre
+oferecem um contraste claro. Não obstante, a capacidade de associar uma identidade única a cada
+interveniente depende criticamente destes dois módulos, sem os quais todo o processamento a
+montante perde grande parte do seu valor analítico.
+
+Apesar da sua importância, a identificação dos jogadores tem recebido uma atenção substancialmente
+menor do que o \emph{tracking}, que concentra a maior parte da investigação na análise e na recolha
+de dados estatísticos do jogo de futebol. Esta assimetria acarreta limitações claras. Por mais
+robusto que seja, um sistema capaz de seguir os intervenientes no relvado mas incapaz de os
+identificar falha em responder à questão mais elementar de qualquer análise desportiva, a de saber
+\emph{quem} é cada jogador em campo. É precisamente esta lacuna que a presente dissertação se propõe
+colmatar.
+
+O trabalho centra-se, então, nos dois componentes de identificação que pior se comportam na
+solução de referência do desafio SoccerNet, a leitura do número de camisola e a atribuição de cada
+jogador à sua equipa e ao respetivo lado do campo. Para os melhorar, intervém-se em quatro dos nove
+módulos do \emph{pipeline}: o leitor de números é substituído, os módulos de equipa e de lado do
+campo são reescritos e o módulo de reidentificação é estendido com um descritor da cor do
+equipamento, sem alterar o que já produzia. Tudo o resto, a deteção, o \emph{tracking}, a
+calibração e a classificação de função, mantém-se inalterado, para que qualquer diferença de
+desempenho possa ser atribuída, sem margem para dúvidas, ao que de facto se alterou. Na leitura do
+número, o reconhecimento ótico de caracteres tradicional dá lugar a um modelo multimodal de visão e
+linguagem aplicado a recortes da zona dorsal do jogador, cujas leituras são depois combinadas por
+votação ao longo de cada trajetória. Na atribuição da equipa, corrigem-se erros no agrupamento por
+aparência e no modo como cada grupo é associado a um lado do campo, e afinam-se os limiares de
+decisão em conjunto sobre os dados de teste e de validação, com a regra de nunca piorar um caso que
+já estava certo.
+
+Avaliadas nos $159$ vídeos anotados do conjunto de dados, contra a solução de referência executada
+nas mesmas condições e sobre os mesmos \emph{tracklets}, estas alterações traduzem-se em ganhos
+claros, tanto nas duas tarefas isoladamente como na métrica oficial do desafio, o GS-HOTA, que é
+ainda decomposta atributo a atributo para que o contributo de cada módulo possa ser lido
+separadamente. O conjunto de treino, que não interveio em nenhuma decisão de conceção, produz
+ganhos da mesma ordem dos do conjunto de teste, o que afasta a hipótese de os resultados decorrerem
+de um sobreajuste aos dados sobre os quais o sistema foi afinado. E tão importante como os ganhos
+foi perceber até onde eles vão. Um conjunto de experiências controladas mostrou que, na leitura do
+número, o desempenho que ainda falta está limitado pela informação que a própria imagem contém, o
+que remete o próximo avanço para etapas anteriores do processamento. Na atribuição da equipa, a
+inspeção visual de todos os vídeos caracterizou as falhas que subsistem, incluindo uma regressão
+face à referência com causa identificada, e revelou de passagem um defeito de calibração na
+configuração distribuída da própria solução de referência.
+
+\section{Estrutura do Documento}\label{sec:estrutura}
+
+A dissertação está organizada em cinco capítulos. O presente capítulo enquadra o problema e delimita
+o âmbito do trabalho. O Capítulo~\ref{cap:estado_arte} revê o estado da arte sobre reconhecimento de
+número de camisola e atribuição da equipa, e percorre os métodos apresentados às sucessivas edições
+do desafio SoccerNet. O Capítulo~\ref{cap:metodologia} descreve a metodologia proposta e a sua
+implementação. O Capítulo~\ref{cap:resultados} reporta e discute os resultados experimentais. Por
+fim, o Capítulo~\ref{cap:conclusao} sintetiza os principais contributos e aponta direções de
+trabalho futuro.

@@ -90,13 +90,13 @@ class PnLCalib_Keypoints(ImageLevelModule):
             download_file("https://zenodo.org/records/14046275/files/pnl_SV_lines?download=1", checkpoint_l)
 
 
-        loaded_state = torch.load(checkpoint_kp, map_location=device)
+        loaded_state = torch.load(checkpoint_kp, map_location=device, weights_only=False)
         self.model = get_cls_net(self.cfg)
         self.model.load_state_dict(loaded_state)
         self.model.to(device)
         self.model.eval()
 
-        loaded_state_l = torch.load(checkpoint_l, map_location=device)
+        loaded_state_l = torch.load(checkpoint_l, map_location=device, weights_only=False)
         self.model_l = get_cls_net_l(self.cfg_l)
         self.model_l.load_state_dict(loaded_state_l)
         self.model_l.to(device)

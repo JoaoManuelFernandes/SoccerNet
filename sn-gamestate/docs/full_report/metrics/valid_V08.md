@@ -1,0 +1,198 @@
+# Pipeline Report — JNR & Team/Team-side
+**Generated**: 2026-07-04 22:41
+**State file**: `/home/joao/soccernet/outputs/sn-gamestate/2026-07-03/12-34-26/states/gshota-valid-V08.pklz`
+
+**Videos**: SNGS-042, SNGS-043, SNGS-044
+**Eval filters**: min_frames=5, match_ratio≥0.3, iou≥0.3, purity≥0.8 (team only)
+
+---
+## Per-video Results
+
+### SNGS-042
+- JNR column present: ✓  |  Team column present: ✓
+
+#### JNR
+| Correct | Wrong | No prediction | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|---------------|-------------------|-------------|-------------|
+| 2 | 1 | 24 | 6 | 27 | **7.4%** |
+
+Wrong JNR predictions:
+```
+ pred_tid gt_jersey pred_jersey  n_frames  purity
+       24        93          83       234     1.0
+```
+
+#### Team / Team-side
+| Correct | Wrong | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|-------------------|-------------|-------------|
+| 25 | 3 | 6 | 28 | **89.3%** |
+
+Wrong team predictions:
+```
+ pred_tid gt_team pred_team  n_frames  purity
+        9    left     right       266     1.0
+       11    left     right       704     1.0
+       19    left     right         6     1.0
+```
+
+#### ID Switches detected: 6
+*(purity < 0.8 — tracklets tracking 2+ GT players; excluded from JNR+team eval)*
+
+```
+  pred_tid=   2  frames= 182  purity=0.69
+    primary : gt_tid=6 jersey=15 team=left (125fr)
+    others  : gt_tid=9 jersey=93 team=left (57fr)
+    predicted: jersey=None  team=left
+  pred_tid=  14  frames= 494  purity=0.54
+    primary : gt_tid=7 jersey=4 team=left (266fr)
+    others  : gt_tid=1 jersey=None team=None (228fr)
+    predicted: jersey=None  team=left
+  pred_tid=  21  frames=  35  purity=0.77
+    primary : gt_tid=8 jersey=5 team=left (27fr)
+    others  : gt_tid=12 jersey=43 team=left (3fr) | gt_tid=1 jersey=None team=None (3fr)
+    predicted: jersey=None  team=left
+  pred_tid=  31  frames=   6  purity=0.67
+    primary : gt_tid=10 jersey=14 team=left (4fr)
+    others  : gt_tid=6 jersey=15 team=left (2fr)
+    predicted: jersey=None  team=left
+  pred_tid=  46  frames=  80  purity=0.68
+    primary : gt_tid=10 jersey=14 team=left (54fr)
+    others  : gt_tid=11 jersey=36 team=left (26fr)
+    predicted: jersey=None  team=left
+  pred_tid=  80  frames=  12  purity=0.75
+    primary : gt_tid=6 jersey=15 team=left (9fr)
+    others  : gt_tid=19 jersey=20 team=right (3fr)
+    predicted: jersey=None  team=left
+```
+
+### SNGS-043
+- JNR column present: ✓  |  Team column present: ✓
+
+#### JNR
+| Correct | Wrong | No prediction | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|---------------|-------------------|-------------|-------------|
+| 3 | 3 | 22 | 4 | 28 | **10.7%** |
+
+Wrong JNR predictions:
+```
+ pred_tid gt_jersey pred_jersey  n_frames  purity
+       63        14          16       164    1.00
+      104         4           5       101    1.00
+      105        11           1       203    0.99
+```
+
+#### Team / Team-side
+| Correct | Wrong | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|-------------------|-------------|-------------|
+| 28 | 4 | 4 | 32 | **87.5%** |
+
+Wrong team predictions:
+```
+ pred_tid gt_team pred_team  n_frames  purity
+        6    left     right       529     1.0
+       33    left     right        10     1.0
+       94    left     right        10     0.9
+      136    left     right        30     1.0
+```
+
+#### ID Switches detected: 6
+*(purity < 0.8 — tracklets tracking 2+ GT players; excluded from JNR+team eval)*
+
+```
+  pred_tid=   7  frames= 242  purity=0.55
+    primary : gt_tid=17 jersey=None team=None (133fr)
+    others  : gt_tid=20 jersey=43 team=left (98fr) | gt_tid=16 jersey=4 team=left (6fr)
+    predicted: jersey=13  team=right
+  pred_tid=  36  frames= 103  purity=0.76
+    primary : gt_tid=16 jersey=4 team=left (78fr)
+    others  : gt_tid=17 jersey=None team=None (11fr) | gt_tid=23 jersey=22 team=right (11fr)
+    predicted: jersey=None  team=left
+  pred_tid= 111  frames= 153  purity=0.69
+    primary : gt_tid=25 jersey=None team=right (106fr)
+    others  : gt_tid=23 jersey=22 team=right (46fr) | gt_tid=15 jersey=11 team=left (1fr)
+    predicted: jersey=None  team=left
+  pred_tid= 115  frames=  88  purity=0.65
+    primary : gt_tid=13 jersey=14 team=left (57fr)
+    others  : gt_tid=16 jersey=4 team=left (31fr)
+    predicted: jersey=54  team=left
+  pred_tid= 129  frames= 118  purity=0.69
+    primary : gt_tid=18 jersey=33 team=left (82fr)
+    others  : gt_tid=20 jersey=43 team=left (35fr) | gt_tid=15 jersey=11 team=left (1fr)
+    predicted: jersey=63  team=left
+  pred_tid= 134  frames=  67  purity=0.69
+    primary : gt_tid=20 jersey=43 team=left (46fr)
+    others  : gt_tid=16 jersey=4 team=left (19fr) | gt_tid=15 jersey=11 team=left (1fr)
+    predicted: jersey=42  team=left
+```
+
+### SNGS-044
+- JNR column present: ✓  |  Team column present: ✓
+
+#### JNR
+| Correct | Wrong | No prediction | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|---------------|-------------------|-------------|-------------|
+| 4 | 4 | 15 | 0 | 23 | **17.4%** |
+
+Wrong JNR predictions:
+```
+ pred_tid gt_jersey pred_jersey  n_frames  purity
+       97         4           6       195    0.97
+      105        36           8        61    0.93
+      107        15           5        89    1.00
+      113        15          65        33    1.00
+```
+
+#### Team / Team-side
+| Correct | Wrong | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|-------------------|-------------|-------------|
+| 21 | 11 | 0 | 32 | **65.6%** |
+
+Wrong team predictions:
+```
+ pred_tid gt_team pred_team  n_frames  purity
+        3    left     right       233    1.00
+       21    left     right       430    0.98
+       75    left     right        84    1.00
+       83    left     right       262    1.00
+       84    left     right         6    1.00
+       90    left     right        23    1.00
+       95    left     right        28    1.00
+      105    left     right        61    0.93
+      109    left     right         7    1.00
+      110    left     right        16    1.00
+```
+
+---
+## Global Summary
+
+### JNR
+| Correct | Wrong | No prediction | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|---------------|-------------------|-------------|-------------|
+| 9 | 8 | 61 | 10 | 78 | **11.5%** |
+
+### Team / Team-side
+| Correct | Wrong | ID-switch (excl.) | Total clean | **Accuracy** |
+|---------|-------|-------------------|-------------|-------------|
+| 74 | 18 | 10 | 92 | **80.4%** |
+
+### ID Switches Summary
+Total ID switches detected: **12** (across 2 videos)
+
+| Video | pred_tid | frames | purity | primary GT | predicted team |
+|-------|----------|--------|--------|------------|----------------|
+| SNGS-042 | 2 | 182 | 0.69 | gt_tid=6 jersey=15 team=left (125fr) | left |
+| SNGS-042 | 14 | 494 | 0.54 | gt_tid=7 jersey=4 team=left (266fr) | left |
+| SNGS-042 | 21 | 35 | 0.77 | gt_tid=8 jersey=5 team=left (27fr) | left |
+| SNGS-042 | 31 | 6 | 0.67 | gt_tid=10 jersey=14 team=left (4fr) | left |
+| SNGS-042 | 46 | 80 | 0.68 | gt_tid=10 jersey=14 team=left (54fr) | left |
+| SNGS-042 | 80 | 12 | 0.75 | gt_tid=6 jersey=15 team=left (9fr) | left |
+| SNGS-043 | 7 | 242 | 0.55 | gt_tid=17 jersey=None team=None (133fr) | right |
+| SNGS-043 | 36 | 103 | 0.76 | gt_tid=16 jersey=4 team=left (78fr) | left |
+| SNGS-043 | 111 | 153 | 0.69 | gt_tid=25 jersey=None team=right (106fr) | left |
+| SNGS-043 | 115 | 88 | 0.65 | gt_tid=13 jersey=14 team=left (57fr) | left |
+| SNGS-043 | 129 | 118 | 0.69 | gt_tid=18 jersey=33 team=left (82fr) | left |
+| SNGS-043 | 134 | 67 | 0.69 | gt_tid=20 jersey=43 team=left (46fr) | left |
+
+> **Note**: ID switches are tracklets where the tracker jumps between two different GT players
+> (purity < 0.80). The mean embedding/color of these tracklets is a mix of both players,
+> making JNR and team classification unreliable. Root cause: tracker Re-ID failure.

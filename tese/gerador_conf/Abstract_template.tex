@@ -1,0 +1,39 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{ABSTRACT}
+\endgroup
+
+\noindent The SoccerNet Game State Reconstruction (GSR) challenge asks for the position of every
+player on a map of the pitch, together with their team, role and jersey number, from a video captured
+by a single camera. In the reference solution, reading the jersey number and assigning each player to their team and
+to the side of the pitch they defend lag behind the other tasks. The jersey number reader was replaced, the team and pitch-side modules
+were rewritten, and a kit colour descriptor was added to re-identification. All other modules were left
+unchanged, so that any gain can be attributed to the changes made.
+
+The number is now read by a multimodal vision-and-language model, applied only to the player's back,
+cropped by a pose model. Only the readings in which the model itself reports being
+confident are counted, a rule that cut wrong numbers to about a third. For team assignment, the
+appearance-based clustering now checks its own quality and falls back on kit colour when
+re-identification does not separate the teams. The pitch side is decided by a sequence of criteria
+that ends with the goalkeeper.
+
+On the $159$ annotated videos of SoccerNet-GSR, against the reference solution under the same conditions, jersey number accuracy rose from @@JNR_ALL_O@@ to @@JNR_ALL_N@@, and team and pitch-side
+accuracy from @@TEAM_ALL_O@@ to @@TEAM_ALL_N@@. GS-HOTA, the official challenge metric, went from
+@@GS_TEST_O@@ to @@GS_TEST_N@@ on the test set, with gains of the same order on validation and on the
+training set, which was not used during development. The whole gain comes from the two tasks that were
+changed. The remaining error comes mostly from numbers that are illegible in the image and, for teams,
+from the role classifier, which was not changed.
+
+\hspace{3cm}\\
+\indent
+\textbf{Keywords: } Game State Reconstruction, Jersey Number Recognition, Team Affiliation,
+Multimodal Models, SoccerNet

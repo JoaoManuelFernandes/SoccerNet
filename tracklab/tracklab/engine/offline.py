@@ -1,4 +1,5 @@
 import logging
+import time
 
 from tracklab.engine import TrackingEngine
 from tracklab.utils.cv2 import cv2_load_image
@@ -19,8 +20,10 @@ class OfflineTrackingEngine(TrackingEngine):
         model_names = self.module_names
         for model_name in model_names:
             print(f"[DEBUG] Running module: {model_name}")
+            _t0 = time.time()
             if self.models[model_name].level == "video":
                 detections = self.models[model_name].process(detections, image_pred)
+                print(f"[TEMPO] {model_name} {time.time() - _t0:.1f}s", flush=True)
                 continue
             self.datapipes[model_name].update(image_filepaths, image_pred, detections)
             self.callback(
@@ -34,11 +37,11 @@ class OfflineTrackingEngine(TrackingEngine):
             if detections.empty:
                 return detections, image_pred
 
-            if model_name.lower() in ["trackletsocr"]:
-                jnr_module = self.models.get(model_name, None)
-                if jnr_module and hasattr(jnr_module, "finalize_ocr"):
-                    detections = jnr_module.finalize_ocr(detections)
-                if hasattr(jnr_module, "cleanup"):
-                    jnr_module.cleanup()
+            _module = self.models.get(model_name, None)
+            if _module and hasattr(_module, "finalize_ocr"):
+                detections = _module.finalize_ocr(detections)
+            if _module and hasattr(_module, "cleanup"):
+                _module.cleanup()
+            print(f"[TEMPO] {model_name} {time.time() - _t0:.1f}s", flush=True)
 
         return detections, image_pred

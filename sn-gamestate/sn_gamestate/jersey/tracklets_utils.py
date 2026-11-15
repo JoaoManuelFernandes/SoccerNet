@@ -253,11 +253,10 @@ def debug_save_image(
             x2, y2 = keypoints_dict[name2]
             cv2.line(debug_img_bgr, (int(x1), int(y1)), (int(x2), int(y2)), color_skel, 2)
 
-    #try:
-    #    cv2.imwrite(output_path, debug_img_bgr)
-    #    print(f"[DEBUG] Salvou imagem com anotações em: {output_path}")
-    #except Exception as e:
-    #    print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
+    try:
+        cv2.imwrite(output_path, debug_img_bgr)
+    except Exception as e:
+        print(f"[ERROR] Falha ao salvar imagem em {output_path}: {e}")
 
 def get_or_download_model(target_dir, filename, url):
     """
@@ -444,46 +443,44 @@ def init_sam_model(checkpoint_path=None, device="cpu"):
         print("[ERROR] segment-anything não instalado. pip install git+https://github.com/facebookresearch/segment-anything.git")
         return None
 
-def sam_segment_jersey(predictor, image_rgb, keypoints=None):
-    """
-    Segmenta a região da camisola usando SAM.
-    Usa keypoint central do tronco como prompt (se disponível).
-    """
-    if predictor is None:
+def sam_segment_jersey(sam_predictor, image_rgb, track_id=None, frame_id=None, save_prefix="sam"):
+    if sam_predictor is None:
+        print("[SAM] predictor=None")
         return image_rgb
 
-    h, w, _ = image_rgb.shape
+    sam_predictor.set_image(image_rgb)
+    H, W, _ = image_rgb.shape
+    input_box = np.array([0, 0, W, H])  # caixa completa
+    masks, scores, _ = sam_predictor.predict(
+        point_coords=None,
+        point_labels=None,
+        box=input_box[None, :],
+        multimask_output=True
+    )
 
-    # Carrega a imagem no SAM predictor
-    predictor.set_image(image_rgb)
+    if masks is None or len(masks) == 0:
+        print("[SAM] nenhuma máscara detectada")
+        return image_rgb
 
-    if keypoints and 'left_shoulder' in keypoints and 'right_shoulder' in keypoints and \
-       'left_hip' in keypoints and 'right_hip' in keypoints:
+    mask = masks[0].astype(np.uint8)
+    torso_img = image_rgb * mask[..., None]
 
-        # Ponto central do tronco
-        sx = (keypoints['left_shoulder'][0] + keypoints['right_shoulder'][0]) / 2
-        sy = (keypoints['left_shoulder'][1] + keypoints['right_shoulder'][1]) / 2
-        hx = (keypoints['left_hip'][0] + keypoints['right_hip'][0]) / 2
-        hy = (keypoints['right_hip'][1] + keypoints['right_hip'][1]) / 2
-        cx = int((sx + hx) / 2)
-        cy = int((sy + hy) / 2)
+    # --- Guardar debug ---
+    run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
+    save_dir = os.path.join(run_path, "debug_jersey", "sam", f"track{track_id}")
+    os.makedirs(save_dir, exist_ok=True)
 
-        mask, _, _ = predictor.predict(
-            point_coords=np.array([[cx, cy]]),
-            point_labels=np.array([1]),
-            multimask_output=False
-        )
-        return image_rgb * mask[..., None]
+    blend = cv2.addWeighted(image_rgb.astype(np.uint8), 0.5,
+                            np.repeat(mask[..., None] * 255, 3, axis=2).astype(np.uint8), 0.5, 0)
 
-    else:
-        # fallback: segmenta pessoa inteira (bounding box default)
-        mask, _, _ = predictor.predict(
-            point_coords=None,
-            point_labels=None,
-            multimask_output=False
-        )
-        return image_rgb * mask[..., None]
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_blend.png"),
+                cv2.cvtColor(blend, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_mask.png"),
+                (mask * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_torso.png"),
+                cv2.cvtColor(torso_img, cv2.COLOR_RGB2BGR))
 
+    return torso_img
 # Mask R-CNN
 def init_maskrcnn_model(device='cpu'):
     """
@@ -497,21 +494,37 @@ def init_maskrcnn_model(device='cpu'):
     model.to(device)
     return model
 
-def maskrcnn_segment_jersey(model, image_rgb):
-    """
-    Segmenta a pessoa e extrai a máscara do tronco usando Mask R-CNN.
-    """
-    import torch
-    image = torch.from_numpy(image_rgb.transpose(2,0,1)).float() / 255.0
-    image = image.unsqueeze(0)
-    with torch.no_grad():
-        outputs = model(image)
-    # Assume que a primeira máscara é da pessoa principal
-    if outputs and 'masks' in outputs[0] and len(outputs[0]['masks']) > 0:
-        mask = outputs[0]['masks'][0,0].cpu().numpy()
-        mask = (mask > 0.5).astype(np.uint8)
-        return image_rgb * mask[..., None]
-    return image_rgb
+def maskrcnn_segment_jersey(predictor, image_rgb, track_id=None, frame_id=None, save_prefix="maskrcnn"):
+    if predictor is None:
+        print("[MaskRCNN] predictor=None")
+        return image_rgb
+
+    outputs = predictor(image_rgb[..., ::-1])  # BGR
+    instances = outputs["instances"]
+
+    if not instances.has("pred_masks") or len(instances) == 0:
+        print("[MaskRCNN] nenhuma máscara encontrada")
+        return image_rgb
+
+    mask = instances.pred_masks[0].cpu().numpy().astype(np.uint8)
+    torso_img = image_rgb * mask[..., None]
+
+    # --- Guardar debug ---
+    run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
+    save_dir = os.path.join(run_path, "debug_jersey", "maskrcnn", f"track{track_id}")
+    os.makedirs(save_dir, exist_ok=True)
+
+    blend = cv2.addWeighted(image_rgb.astype(np.uint8), 0.5,
+                            np.repeat(mask[..., None] * 255, 3, axis=2).astype(np.uint8), 0.5, 0)
+
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_blend.png"),
+                cv2.cvtColor(blend, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_mask.png"),
+                (mask * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_torso.png"),
+                cv2.cvtColor(torso_img, cv2.COLOR_RGB2BGR))
+
+    return torso_img
 
 # DensePose
 def init_densepose_model(device="cuda"):
@@ -545,43 +558,70 @@ def init_densepose_model(device="cuda"):
         print(f"[ERROR] DensePose não instalado corretamente: {e}")
         return None
 
-def densepose_segment_jersey(predictor, image_rgb, save_prefix="densepose"):
+def densepose_segment_jersey(predictor, image_rgb, track_id=None, frame_id=None, save_prefix="densepose"):
     if predictor is None:
+        print("[DensePose] predictor=None")
         return image_rgb
 
-    outputs = predictor(image_rgb[..., ::-1])  # BGR -> RGB
+    outputs = predictor(image_rgb[..., ::-1])  # BGR → RGB
     instances = outputs["instances"]
 
     if not instances.has("pred_densepose"):
+        print("[DensePose] instances não têm pred_densepose")
         return image_rgb
 
     dp_out = instances.pred_densepose
 
-    # Verifica se tens fine_segm ou coarse_segm
+    # Extrair labels
     if hasattr(dp_out, "fine_segm"):
-        labels = dp_out.fine_segm.argmax(dim=0).cpu().numpy()
+        labels = dp_out.fine_segm.cpu().numpy()
     elif hasattr(dp_out, "coarse_segm"):
-        labels = dp_out.coarse_segm.argmax(dim=0).cpu().numpy()
+        labels = dp_out.coarse_segm.cpu().numpy()
     else:
-        print("[ERROR] DensePose output não tem fine_segm nem coarse_segm.")
+        print("[DensePose] pred_densepose sem fine nem coarse_segm")
         return image_rgb
 
-    h, w = labels.shape
-    colors = np.random.randint(0, 255, (labels.max() + 1, 3), dtype=np.uint8)
-    color_mask = colors[labels]
-    blended = cv2.addWeighted(image_rgb, 0.5, color_mask, 0.5, 0)
+    if labels.ndim == 4:   # (N, C, H, W)
+        labels = labels[0]
+    if labels.ndim == 3:   # (C, H, W)
+        labels = np.argmax(labels, axis=0)
+    elif labels.ndim == 2: # (H, W)
+        pass
+    else:
+        print(f"[DensePose] formato inesperado: {labels.shape}")
+        return image_rgb
 
+    print(f"[DensePose DEBUG] labels final shape={labels.shape}, dtype={labels.dtype}")
+
+    colors = np.random.randint(0, 255, (labels.max() + 1, 3), dtype=np.uint8)
+    color_mask = colors[labels].astype(np.uint8)
+
+    # Resize para coincidir com image_rgb
+    color_mask_resized = cv2.resize(color_mask, (image_rgb.shape[1], image_rgb.shape[0]),
+                                    interpolation=cv2.INTER_NEAREST)
+
+    blended = cv2.addWeighted(image_rgb.astype(np.uint8), 0.5, color_mask_resized, 0.5, 0)
+
+    # --- Guardar debug ---
     run_path = os.getenv("HYDRA_RUN_DIR", os.getcwd())
-    save_dir = os.path.join(run_path, "densepose")
+    save_dir = os.path.join(run_path, "debug_jersey", "densepose", f"track{track_id}")
     os.makedirs(save_dir, exist_ok=True)
-    cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_labels.png"),
+
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_blend.png"),
                 cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
 
-    # ⚠️ Ajusta o torso_label de acordo com a legenda DensePose
+    # Torso = label 1
     torso_label = 1
-    torso_mask = (labels == torso_label).astype(np.uint8) * 255
-    torso_img = image_rgb * (torso_mask[..., None] > 0)
-    cv2.imwrite(os.path.join(save_dir, f"{save_prefix}_torso.png"),
+    torso_mask = (labels == torso_label).astype(np.uint8)
+
+    torso_mask_resized = cv2.resize(torso_mask, (image_rgb.shape[1], image_rgb.shape[0]),
+                                    interpolation=cv2.INTER_NEAREST)
+
+    torso_img = image_rgb * torso_mask_resized[..., None]
+
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_mask.png"),
+                (torso_mask_resized * 255).astype(np.uint8))
+    cv2.imwrite(os.path.join(save_dir, f"frame{frame_id}_torso.png"),
                 cv2.cvtColor(torso_img, cv2.COLOR_RGB2BGR))
 
     return torso_img
@@ -604,6 +644,7 @@ def extract_jersey_region(image_rgb, keypoints=None, mode='heuristic', sam_model
         return image_rgb
 
 def extract_jersey_colors(
+
     image_rgb, keypoints=None,
     mode='heuristic',
     sam_model=None, densepose_model=None, maskrcnn_model=None,
@@ -613,32 +654,121 @@ def extract_jersey_colors(
     Extrai cor média da região da camisola em RGB, HSV e CIELAB.
     Se debug_save=True, grava a imagem segmentada usada (heuristic/sam/densepose/maskrcnn).
     """
-    jersey_crop = extract_jersey_region(
-        image_rgb, keypoints, mode,
-        sam_model=sam_model,
-        densepose_model=densepose_model,
-        maskrcnn_model=maskrcnn_model
-    )
+    try:
+        jersey_crop = extract_jersey_region(
+            image_rgb, keypoints, mode,
+            sam_model=sam_model,
+            densepose_model=densepose_model,
+            maskrcnn_model=maskrcnn_model
+        )
 
-    if jersey_crop is None or jersey_crop.size == 0:
+        # ⚠️ Se vier tuplo (ex: (crop, mask)), usa só a primeira parte
+        if isinstance(jersey_crop, (tuple, list)):
+            if debug_save:
+                print(f"[DEBUG] {mode} devolveu tuplo {type(jersey_crop)} com len={len(jersey_crop)}")
+            jersey_crop = jersey_crop[0]
+
+        if jersey_crop is None or not hasattr(jersey_crop, "size") or jersey_crop.size == 0:
+            if debug_save:
+                print(f"[DEBUG] {mode} devolveu vazio para track {track_id}, frame {frame_id}")
+            return None
+
+        # --- DEBUG SAVE da imagem segmentada usada ---
+        if debug_save and run_path is not None and track_id is not None and frame_id is not None:
+            save_dir = os.path.join(run_path, "debug_jersey")
+            os.makedirs(save_dir, exist_ok=True)
+            seg_path = os.path.join(save_dir, f"track{track_id}_frame{frame_id}_{mode}.jpg")
+            try:
+                cv2.imwrite(seg_path, cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2BGR))
+            except Exception as e:
+                print(f"[DEBUG] Falhou a salvar {mode} segmentation: {e}")
+
+        # Extrai cores
+        mean_rgb = np.mean(jersey_crop.reshape(-1, 3), axis=0)
+        hsv = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2HSV)
+        mean_hsv = np.mean(hsv.reshape(-1, 3), axis=0)
+        lab = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2LAB)
+        mean_lab = np.mean(lab.reshape(-1, 3), axis=0)
+
+        return {'mean_rgb': mean_rgb, 'mean_hsv': mean_hsv, 'mean_lab': mean_lab}
+
+    except Exception as e:
+        print(f"[extract_jersey_colors][{mode}] erro em track {track_id}, frame {frame_id}: {e}")
         return None
+    
 
-    # --- DEBUG SAVE da imagem segmentada usada ---
-    if debug_save and run_path is not None and track_id is not None and frame_id is not None:
-        save_dir = os.path.join(run_path, "debug_jersey")
-        os.makedirs(save_dir, exist_ok=True)
-        seg_path = os.path.join(save_dir, f"track{track_id}_frame{frame_id}_{mode}.jpg")
-        try:
-            cv2.imwrite(seg_path, cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2BGR))
-        except Exception as e:
-            print(f"[DEBUG] Falhou a salvar {mode} segmentation: {e}")
+def init_sam3_model(cfg: dict, device: str = "cpu"):
+    """
+    Inicializa SAM-3 e devolve um handler/model.
+    Mantém interface semelhante a init_sam_model/init_maskrcnn_model.
+    """
+    from sn_gamestate.jersey.sam3_api import SAM3Client
+    sam3_cfg = (cfg or {}).get("sam3", cfg or {})
+    return SAM3Client(cfg=sam3_cfg, device=device)
 
-    # Extrai cores
-    mean_rgb = np.mean(jersey_crop.reshape(-1, 3), axis=0)
-    hsv = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2HSV)
-    mean_hsv = np.mean(hsv.reshape(-1, 3), axis=0)
-    lab = cv2.cvtColor(jersey_crop, cv2.COLOR_RGB2LAB)
-    mean_lab = np.mean(lab.reshape(-1, 3), axis=0)
 
-    return {'mean_rgb': mean_rgb, 'mean_hsv': mean_hsv, 'mean_lab': mean_lab}
+def sam3_segment_jersey(sam3_model, image_rgb, bbox_xyxy=None):
+    """
+    Segmenta a região de jersey usando SAM-3.
+    Retorna (mask, score, extra_meta)
+    """
+    out = sam3_model.segment_jersey(image_rgb, bbox_xyxy=bbox_xyxy)
+    return out.get("mask", None), float(out.get("score", 0.0) or 0.0), out.get("meta", {})
 
+
+def segment_jersey_dispatcher(
+    backend: str,
+    image_rgb,
+    bbox_xyxy=None,
+    models: dict = None,
+):
+    """
+    Dispatcher unificado:
+      backend in {"none","sam","sam3","maskrcnn","densepose"}
+    models: dict com instâncias já inicializadas (para evitar reload por frame).
+    """
+    backend = (backend or "none").lower()
+    models = models or {}
+
+    if backend == "none":
+        return None, 0.0, {"backend": "none"}
+
+    if backend == "sam3":
+        model = models.get("sam3", None)
+        if model is None:
+            raise RuntimeError("SAM3 model not initialized. Call init_sam3_model and pass models['sam3'].")
+        mask, score, meta = sam3_segment_jersey(model, image_rgb, bbox_xyxy=bbox_xyxy)
+        meta = dict(meta or {})
+        meta["backend"] = "sam3"
+        return mask, score, meta
+
+    # Mantém compatibilidade com o que já tens (se existirem estas funções)
+    if backend == "sam":
+        model = models.get("sam", None)
+        if model is None:
+            raise RuntimeError("SAM model not initialized. Expected models['sam'].")
+        # assume que já existe: sam_segment_jersey(model, image_rgb, bbox_xyxy=...)
+        mask, score, meta = sam_segment_jersey(model, image_rgb, bbox_xyxy=bbox_xyxy)  # type: ignore[name-defined]
+        meta = dict(meta or {})
+        meta["backend"] = "sam"
+        return mask, float(score), meta
+
+    if backend == "maskrcnn":
+        model = models.get("maskrcnn", None)
+        if model is None:
+            raise RuntimeError("MaskRCNN model not initialized. Expected models['maskrcnn'].")
+        mask, score, meta = maskrcnn_segment_jersey(model, image_rgb, bbox_xyxy=bbox_xyxy)  # type: ignore[name-defined]
+        meta = dict(meta or {})
+        meta["backend"] = "maskrcnn"
+        return mask, float(score), meta
+
+    if backend == "densepose":
+        model = models.get("densepose", None)
+        if model is None:
+            raise RuntimeError("DensePose model not initialized. Expected models['densepose'].")
+        mask, score, meta = densepose_segment_jersey(model, image_rgb, bbox_xyxy=bbox_xyxy)  # type: ignore[name-defined]
+        meta = dict(meta or {})
+        meta["backend"] = "densepose"
+        return mask, float(score), meta
+
+    raise ValueError(f"Unknown segmentation backend: {backend}")

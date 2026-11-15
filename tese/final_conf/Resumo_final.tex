@@ -1,0 +1,41 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{RESUMO}
+\endgroup
+
+\noindent O desafio SoccerNet de reconstrução do estado de jogo (\emph{Game State Reconstruction}, GSR)
+pede que, a partir de um vídeo de uma única câmara, se determine a posição de cada jogador no
+mapa do campo, a sua equipa, função e número da camisola. Na solução de referência, a leitura do número da camisola e a atribuição de cada jogador à sua
+equipa e ao lado do campo que defende ficam atrás das restantes tarefas. Substituiu-se o leitor de
+números, reescreveram-se os módulos da equipa e do lado do campo e juntou-se à reidentificação um
+descritor de cor. Os restantes módulos ficaram inalterados, para que qualquer ganho
+possa ser atribuído às alterações feitas.
+
+O número passou a ser lido por um modelo multimodal de visão e linguagem, aplicado apenas às costas
+do jogador, recortadas por um modelo de pose. Só contam as leituras em que o próprio modelo
+diz estar seguro, regra que reduziu os números errados a cerca de um terço. Na equipa, o
+agrupamento por aparência passou a verificar a própria qualidade e a recorrer à cor do
+equipamento quando a reidentificação não separa as equipas. O lado do campo é decidido por uma
+sequência de critérios que termina no guarda-redes.
+
+Nos $159$ vídeos anotados do SoccerNet-GSR, face à solução de referência nas mesmas condições,
+a exatidão do número subiu de $15.3\%$ para $42.6\%$ e a da equipa e do lado do
+campo de $83.5\%$ para $92.8\%$. O GS-HOTA, métrica oficial do desafio, passou de
+$31.30\%$ para $47.87\%$ no conjunto de teste, com ganhos da mesma ordem na validação e no
+treino, que não foi usado no desenvolvimento. Todo o ganho vem das duas tarefas alteradas. O erro que
+resta vem sobretudo de números ilegíveis na imagem e, na equipa, do classificador de função, que não
+foi alterado.
+
+\hspace{3cm}\\
+\indent
+\textbf{Palavras-chave: } Reconstrução do Estado de Jogo, Reconhecimento do Número de Camisola,
+Atribuição da Equipa, Modelos Multimodais, SoccerNet

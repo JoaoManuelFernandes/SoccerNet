@@ -1,0 +1,22 @@
+"""Repõe os keypoints normalizados (0-1) num estado em que a calibração original os desnormalizou no
+próprio sítio (FramebyFrameCalib.update com denormalize=True altera o dict em memória, e o estado
+guarda-o assim). Só toca nas imagens com coordenadas > 1. Uso: normaliza_kp.py <in.pklz> <out.pklz>"""
+import sys, zipfile, pickle, io
+W, H = 1920.0, 1080.0
+src, dst = sys.argv[1], sys.argv[2]
+zi = zipfile.ZipFile(src); n_fix = n_img = 0
+with zipfile.ZipFile(dst + ".tmp", "w", zipfile.ZIP_DEFLATED) as zo:
+    for name in zi.namelist():
+        data = zi.read(name)
+        if name.endswith("_image.pkl"):
+            df = pickle.loads(data)
+            for idx, kp in df["keypoints"].items():
+                if isinstance(kp, dict) and kp:
+                    n_img += 1
+                    if any(v.get("x", 0) > 1.0 or v.get("y", 0) > 1.0 for v in kp.values()):
+                        for v in kp.values(): v["x"] /= W; v["y"] /= H
+                        n_fix += 1
+            data = pickle.dumps(df)
+        zo.writestr(name, data)
+import os; os.replace(dst + ".tmp", dst)
+print(f"{os.path.basename(src)}: {n_fix}/{n_img} imagens renormalizadas")

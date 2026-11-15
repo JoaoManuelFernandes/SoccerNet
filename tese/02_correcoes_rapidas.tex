@@ -1,0 +1,109 @@
+% ============================================================================
+% (A) TABELA 2.1 com limites de célula visíveis
+%     Substituir a tabela actual por esta. Requer \usepackage{array} no preâmbulo
+%     (quase de certeza já lá está; se não, acrescentar).
+% ============================================================================
+
+\begin{table}[htbp]
+\centering
+\caption{Alternativas de leitura do número consideradas e razão do seu descarte.}
+\label{tab:alternativas}
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{3.6cm}|p{9.0cm}|}
+\hline
+\textbf{Abordagem} & \textbf{Razão do descarte} \\
+\hline
+EasyOCR e OCR clássico &
+Mesma limitação estrutural do MMOCR, falha em números pequenos ou inclinados e não
+distingue o número de outros elementos gráficos. \\
+\hline
+PaddleOCR (com \emph{fine-tuning}) &
+Falha de segmentação (\emph{segfault}) ao inicializar no mesmo processo que o CUDA do
+\emph{pipeline}, e mesmo isolado não recuperou leituras face ao Qwen. \\
+\hline
+HunyuanOCR &
+\emph{VLM} mais pesado, sem ganho de exatidão que compensasse o custo de VRAM e de
+latência no \emph{hardware} disponível. \\
+\hline
+Qwen2.5-VL-7B &
+Requer cerca de 10\,GB de VRAM, acima dos 6\,GB da GPU, o que inviabiliza a sua
+utilização. \\
+\hline
+Super-resolução (RealESRGAN) &
+A informação em falta não existe na imagem de origem, e a ampliação amplifica o ruído
+em vez de a recuperar. \\
+\hline
+SAM-3D-Body &
+Reconstrução tridimensional do corpo demasiado pesada para correr por \emph{frame} e
+desadequada a um simples sinal de orientação. \\
+\hline
+Classificador de orientação &
+O ganho de filtrar as \emph{frames} sem as costas visíveis não compensou, pois a votação
+por \emph{tracklet} já absorve naturalmente essas \emph{frames}. \\
+\hline
+\end{tabular}
+\end{table}
+
+
+% ============================================================================
+% (B) INTRODUÇÃO E CONCLUSÃO COMO CAPÍTULOS NUMERADOS
+% ============================================================================
+%
+% No ficheiro onde estão os \include/\input dos capítulos (normalmente main.tex),
+% procurar as linhas da introdução e da conclusão. Vão ter uma destas formas:
+%
+%     \chapter*{INTRODUÇÃO}
+%     \addcontentsline{toc}{chapter}{INTRODUÇÃO}
+%
+% ou uma macro do template, do género \introduction{} / \conclusions{}.
+%
+% CORREÇÃO, no primeiro caso:
+%     \chapter{INTRODUÇÃO}                 % sem o asterisco
+%     % apagar a linha \addcontentsline, que passa a ser automática
+%
+% CORREÇÃO, no segundo caso: abrir o .cls ou .sty do template, localizar a
+% definição da macro e trocar lá o \chapter* por \chapter.
+%
+% A conclusão precisa ainda de duas correcções que já vinham do template:
+%   1. o título está em inglês ("CONCLUSIONS"), deve passar a "CONCLUSÃO";
+%   2. o corpo é ainda texto de exemplo em latim.
+%
+% ATENÇÃO À RENUMERAÇÃO. Com a introdução a passar a capítulo 1, tudo desloca:
+%     Cap. 1  INTRODUÇÃO
+%     Cap. 2  ESTADO DA ARTE
+%     Cap. 3  METODOLOGIA
+%     Cap. 4  RESULTADOS
+%     Cap. 5  CONCLUSÃO
+%
+% Há referências no texto que ficam erradas e têm de ser actualizadas:
+%   - "ESTRUTURA DO DOCUMENTO", na introdução (texto novo mais abaixo);
+%   - "seguindo a lógica exposta na Secção 1.4"  -> Secção 2.4
+%   - "a recalibração descrita na Secção 2.3.2"  -> Secção 3.3.2
+%   - "a arquitectura da baseline (Figura 1.2)"  -> Figura 2.2
+%   - "a conclusão do Capítulo 3"                -> Capítulo 4
+%   - "o Capítulo 3 reporta e discute"           -> Capítulo 4
+%
+% Para não voltar a passar por isto, vale a pena pôr \label{cap:...} em cada
+% capítulo e substituir os números por \ref{}.
+
+
+% ============================================================================
+% (C) ESTRUTURA DO DOCUMENTO reescrita para a numeração nova
+%     (secção final da introdução)
+% ============================================================================
+
+\section*{ESTRUTURA DO DOCUMENTO}
+
+A dissertação está organizada em cinco capítulos. O presente capítulo enquadra o problema
+e delimita o âmbito do trabalho. O Capítulo~\ref{cap:estado_arte} revê o estado da arte,
+percorrendo primeiro a literatura sobre reconhecimento do número de camisola e atribuição
+de equipa, e detendo-se depois sobre os sistemas apresentados nas duas edições do desafio
+SoccerNet, que constituem o termo de comparação mais direto para este trabalho. O
+Capítulo~\ref{cap:metodologia} descreve a metodologia proposta, detalhando o novo módulo
+de leitura do número, as correções introduzidas na atribuição de equipa e do lado do campo
+e o ambiente experimental em que tudo assenta. O Capítulo~\ref{cap:resultados} reporta e
+discute os resultados, primeiro de cada módulo isoladamente e depois no sistema completo,
+incluindo as experiências controladas que delimitam o teto da abordagem. O
+Capítulo~\ref{cap:conclusao} sintetiza os contributos e aponta as direções de trabalho
+futuro.

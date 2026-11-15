@@ -1,0 +1,405 @@
+[
+  {
+    "tid": 1.0,
+    "jersey": "44",
+    "conf": 0.455,
+    "historial": [
+      null,
+      null,
+      "14",
+      "14",
+      null,
+      "5",
+      "14",
+      "44",
+      "44",
+      "44",
+      "44",
+      null,
+      null,
+      null,
+      "44",
+      "14",
+      "44",
+      "44",
+      "44",
+      "44",
+      "44",
+      null
+    ]
+  },
+  {
+    "tid": 2.0,
+    "jersey": "14",
+    "conf": 0.875,
+    "historial": [
+      "14",
+      "14",
+      "14",
+      "14",
+      "14",
+      "14",
+      "14",
+      null
+    ]
+  },
+  {
+    "tid": 3.0,
+    "jersey": "11",
+    "conf": 0.484,
+    "historial": [
+      null,
+      "17",
+      "17",
+      "17",
+      "17",
+      "17",
+      "11",
+      "11",
+      "17",
+      "11",
+      "11",
+      "17",
+      "11",
+      "17",
+      "11",
+      "17",
+      "17",
+      "11",
+      "11",
+      "11",
+      "11",
+      null,
+      "11",
+      "11",
+      "11",
+      "17",
+      "11",
+      "17",
+      "17",
+      "17",
+      "11"
+    ]
+  },
+  {
+    "tid": 5.0,
+    "jersey": "7",
+    "conf": 1.0,
+    "historial": [
+      "7",
+      "7",
+      "7"
+    ]
+  },
+  {
+    "tid": 6.0,
+    "jersey": "25",
+    "conf": 0.8,
+    "historial": [
+      "25",
+      "25",
+      null,
+      "25",
+      "25"
+    ]
+  },
+  {
+    "tid": 7.0,
+    "jersey": "33",
+    "conf": 0.6,
+    "historial": [
+      "33",
+      "33",
+      "33",
+      null,
+      null
+    ]
+  },
+  {
+    "tid": 9.0,
+    "jersey": "56",
+    "conf": 1.0,
+    "historial": [
+      "56"
+    ]
+  },
+  {
+    "tid": 10.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null,
+      null,
+      "33",
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "tid": 11.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null
+    ]
+  },
+  {
+    "tid": 14.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null
+    ]
+  },
+  {
+    "tid": 16.0,
+    "jersey": "20",
+    "conf": 0.875,
+    "historial": [
+      "20",
+      "20",
+      "20",
+      "20",
+      null,
+      "20",
+      "20",
+      "20"
+    ]
+  },
+  {
+    "tid": 18.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null
+    ]
+  },
+  {
+    "tid": 27.0,
+    "jersey": "55",
+    "conf": 1.0,
+    "historial": [
+      "55",
+      "55",
+      "55",
+      "55"
+    ]
+  },
+  {
+    "tid": 29.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null
+    ]
+  },
+  {
+    "tid": 31.0,
+    "jersey": "20",
+    "conf": 0.818,
+    "historial": [
+      "20",
+      "28",
+      "20",
+      "20",
+      "20",
+      "20",
+      "20",
+      "20",
+      "20",
+      "20",
+      null
+    ]
+  },
+  {
+    "tid": 42.0,
+    "jersey": "26",
+    "conf": 1.0,
+    "historial": [
+      "26",
+      "26",
+      "26",
+      "26"
+    ]
+  },
+  {
+    "tid": 43.0,
+    "jersey": "7",
+    "conf": 0.882,
+    "historial": [
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "7",
+      "17",
+      "7",
+      "7",
+      "7",
+      null
+    ]
+  },
+  {
+    "tid": 44.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null,
+      null,
+      "28",
+      null,
+      "5",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "tid": 45.0,
+    "jersey": "44",
+    "conf": 1.0,
+    "historial": [
+      null,
+      null,
+      null,
+      null,
+      "46",
+      null,
+      "14",
+      null,
+      null,
+      null,
+      null,
+      null,
+      "44",
+      "44",
+      "44",
+      "44",
+      "44",
+      "44",
+      "44",
+      "44",
+      "44"
+    ]
+  },
+  {
+    "tid": 46.0,
+    "jersey": "4",
+    "conf": 0.571,
+    "historial": [
+      "64",
+      "44",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "54",
+      null,
+      null,
+      "4",
+      null
+    ]
+  },
+  {
+    "tid": 48.0,
+    "jersey": "23",
+    "conf": 0.846,
+    "historial": [
+      "22",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      "23",
+      null
+    ]
+  },
+  {
+    "tid": 49.0,
+    "jersey": "50",
+    "conf": 0.8,
+    "historial": [
+      "50",
+      "50",
+      "50",
+      "50",
+      "50",
+      "50",
+      null,
+      "50",
+      "50",
+      "56"
+    ]
+  },
+  {
+    "tid": 54.0,
+    "jersey": "5",
+    "conf": 0.9,
+    "historial": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      "5",
+      "5"
+    ]
+  },
+  {
+    "tid": 56.0,
+    "jersey": "23",
+    "conf": 0.6,
+    "historial": [
+      "23",
+      "23",
+      "23",
+      "22",
+      "22"
+    ]
+  },
+  {
+    "tid": 61.0,
+    "jersey": "20",
+    "conf": 1.0,
+    "historial": [
+      "20",
+      "20"
+    ]
+  }
+]

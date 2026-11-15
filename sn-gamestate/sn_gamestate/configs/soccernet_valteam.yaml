@@ -1,0 +1,100 @@
+# TrackLab SoccerNet config
+
+# The defaults list contains the files that will be used
+# to create the final config file. This item *must* be
+# the first element in the file.
+# Detailed configs for each default component below are located in "sn-gamestate/sn-gamestate/configs" and "tracklab/tracklab/configs"
+# Define here which implementation (yolov8, oc_sort, ..) to use for each generic (detection, tracking, ...) component.
+defaults:
+  - dataset: soccernet_gs
+  - eval: gs_hota
+  - engine: offline
+  - state: save
+  - visualization: gamestate
+  - modules/bbox_detector: yolov8
+  - modules/reid: prtreid
+  - modules/track: bpbreid_strong_sort
+  - modules/jersey_number_detect: tracklets_jnr_v2
+  - modules/team: kmeans_embeddings
+  - modules/team_side: mean_position
+  - modules/tracklet_agg: voting_role_only
+  - modules/pitch : nbjw_calib
+  - modules/calibration: nbjw_calib
+  - _self_
+
+# Pipeline completo — vídeos de test em falta (sem load_file, do zero)
+# Ordem: tracklet_agg antes de team (team precisa de 'role' já agregado)
+pipeline:
+  - bbox_detector
+  - reid
+  - track
+  - pitch
+  - calibration
+  - tracklet_agg
+  - team
+  - team_side
+
+
+
+# Experiment name
+experiment_name: "sn-gamestate"
+
+# Path definitions
+home_dir: "${oc.env:HOME}"
+data_dir: "/home/joao/soccernet/data"
+model_dir: "/home/joao/soccernet/pretrained_models"
+
+# Machine configuration
+# Evita OOM por fragmentação de VRAM quando Qwen + nbjw_calib coexistem
+hydra_env:
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+num_cores: 2
+use_wandb: False
+use_rich: True
+
+modules: # Allows module-specific batch_size and other configuration
+  bbox_detector: {batch_size: 1}
+  pose_bottomup: {batch_size: 1}
+  reid: {batch_size: 1}
+  track: {batch_size: 1}
+  pitch: {batch_size: 1}
+  calibration: {batch_size: 1}   # 1 evita OOM com Qwen (~2GB) carregado em VRAM
+  jersey_number_detect: {batch_size: 4, save_debug_crops: false, max_tracklets_per_qwen_batch: 4}
+
+# Flags
+test_tracking: True
+eval_tracking: False
+print_config: False
+
+dataset:
+  nvid: 3
+  nframes: -1
+  eval_set: "valid"
+  dataset_path: ${data_dir}/SoccerNetGS
+  vids_dict:
+    valid:
+      - 'SNGS-094'
+      - 'SNGS-095'
+      - 'SNGS-096'
+
+# Tracker state
+state:
+  load_file: null
+  save_file: states/valteam-V18.pklz
+
+# Visualization
+visualization:
+  cfg:
+    save_videos: False
+
+# configure Hydra to use the current working directory
+# and set up the output directory according to experiment_name
+project_dir: "${hydra:runtime.cwd}"
+hydra:
+  output_subdir: "configs"
+  job:
+    chdir: True
+  run:
+    dir: "outputs/${experiment_name}/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+  sweep:
+    dir: "multirun_outputs/${experiment_name}/${now:%Y-%m-%d}/${now:%H-%M-%S}"

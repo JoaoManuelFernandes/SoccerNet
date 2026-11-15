@@ -1,3 +1,6 @@
+print("TRACE: start importing tracklets_ocr", flush=True)
+
+print("TRACE: before std imports", flush=True)
 import pandas as pd
 import torch
 import numpy as np
@@ -7,26 +10,17 @@ import logging
 import cv2
 import time
 import datetime
-
 import re
 from collections import defaultdict, Counter
-import gc, paddle, torch
-print("paddle a usar:" + paddle.device.get_device())        # deve devolver 'gpu:0'
+import gc
 
-from paddleocr import PaddleOCR
+# NÃO importar paddle, paddleocr, basicsr, realesrgan aqui no topo
+
 from mmengine.registry import init_default_scope
 init_default_scope('mmpose')
 
 from tracklab.utils.collate import default_collate, Unbatchable
 from tracklab.pipeline.detectionlevel_module import DetectionLevelModule
-from basicsr.archs.rrdbnet_arch import RRDBNet
-from realesrgan import RealESRGANer
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S"
-)
 
 from sn_gamestate.jersey.tracklets_utils import (
     run_hrnet_pose_inference,
@@ -39,12 +33,10 @@ from sn_gamestate.jersey.tracklets_utils import (
     save_pose_debug_data,
     is_facing_away_trunk_motion,
     init_sam_model, extract_jersey_colors,
-    init_maskrcnn_model, init_densepose_model
+    init_maskrcnn_model, init_densepose_model,
 )
 
-
 log = logging.getLogger(__name__)
-
 class TrackletsOCR(DetectionLevelModule):
     input_columns = ["bbox_ltwh"]
     output_columns = ["jersey_number_detection", "jersey_number_confidence"]
@@ -56,21 +48,21 @@ class TrackletsOCR(DetectionLevelModule):
             device,
             model_dir=None,
             ocr_decision_strategy="confidence_sum",
-            min_votes = 2,
-            confidence_threshold = 0.85,
-            jnr_batch_frames = 5,
-            use_superres = True,
-            debug_paddleocr = False,
-            ocr_only_model = None, 
-            pose_model_name = "td-hm_hrnet-w32_8xb64-210e_coco-256x192",
-            angle_threshold_1 = 175,
-            angle_threshold_2 = 150,
-            angle_threshold_3 = 145,
-            score_threshold_1 = 0.7,
-            score_threshold_2 = 0.8,
-            angle_trunk_motion_threshold = 120,
-            min_percent_away = 70.0,
-            jersey_segmentation_mode = "densepose",  # opções: heuristic, sam, densepose, maskrcnn
+            min_votes=2,
+            confidence_threshold=0.85,
+            jnr_batch_frames=5,
+            use_superres=False,  # DESLIGADO para já
+            debug_paddleocr=False,
+            ocr_only_model=None,
+            pose_model_name="td-hm_hrnet-w32_8xb64-210e_coco-256x192",
+            angle_threshold_1=175,
+            angle_threshold_2=150,
+            angle_threshold_3=145,
+            score_threshold_1=0.7,
+            score_threshold_2=0.8,
+            angle_trunk_motion_threshold=120,
+            min_percent_away=70.0,
+            jersey_segmentation_mode="densepose",
             **kwargs
         ):
 
@@ -84,16 +76,14 @@ class TrackletsOCR(DetectionLevelModule):
             self.confidence_threshold = confidence_threshold
             self.jnr_batch_frames = jnr_batch_frames
             self.use_superres = use_superres
+            self.debug_paddleocr = debug_paddleocr
             self.pose_model_name = pose_model_name
 
             self.pose_debug_data = defaultdict(list)
-
             self.best_by_track = {}
             self.tracklet_images_global = {}
             self.comparison_rows = []
-            self.debug_paddleocr = debug_paddleocr
-            self.tracklet_debug_data = defaultdict(list) 
-
+            self.tracklet_debug_data = defaultdict(list)
             self.tracklet_detection_buffer = defaultdict(list)
             self.tracklet_detection_logs = defaultdict(list)
             self.confidence_sum_buffer = defaultdict(lambda: defaultdict(float))
@@ -104,13 +94,18 @@ class TrackletsOCR(DetectionLevelModule):
             from mmpose.apis import MMPoseInferencer
             valid_models = MMPoseInferencer.list_models(scope='mmpose')
             if self.pose_model_name not in valid_models:
-                raise ValueError(f"Modelo de pose '{self.pose_model_name}' não suportado. Escolha um dos modelos válidos: {valid_models}")
+                raise ValueError(f"Modelo de pose '{self.pose_model_name}' não suportado.")
             self.pose_model = MMPoseInferencer(self.pose_model_name)
             self.pose_infer_fn = run_hrnet_pose_inference
 
-            # --- Inicialização dos modelos OCR (PaddleOCR 3.2.0) ---
+            # --- DESLIGADO: RealESRGAN ---
+            self.upscaler = None
+            # (quando precisares, liga depois)
+
+            # --- PaddleOCR (importado AQUI) ---
             self.ocr_models = {}
             self.ocr_only_model = ocr_only_model
+
             det_model_dir = os.path.join(self.model_dir, 'paddleocr', 'ch_PP-OCRv4_det_infer')
             rec_model_dir = os.path.join(self.model_dir, 'paddleocr', 'ch_PP-OCRv4_rec_infer')
 
@@ -119,74 +114,85 @@ class TrackletsOCR(DetectionLevelModule):
                     import requests, tarfile
                     os.makedirs(model_dir, exist_ok=True)
                     tar_path = model_dir + '.tar'
-                    print(f"Baixando modelo {url} ...")
+                    log.info(f"Baixando modelo {url} ...")
                     r = requests.get(url, allow_redirects=True)
                     with open(tar_path, 'wb') as f:
                         f.write(r.content)
-                    print(f"Extraindo {tar_path} ...")
+                    log.info(f"Extraindo {tar_path} ...")
                     with tarfile.open(tar_path) as tar:
                         tar.extractall(path=os.path.dirname(model_dir))
                     os.remove(tar_path)
 
             det_url = 'https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_det_infer.tar'
             rec_url = 'https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_rec_infer.tar'
-            download_and_extract(det_model_dir, det_url)
-            download_and_extract(rec_model_dir, rec_url)
-
-
-
-            self.ocr_models['ppocr_v4'] = PaddleOCR(
-                use_gpu=True,
-                det=True,
-                cls=False,
-                rec=True,
-                det_algorithm='DB',
-                rec_algorithm='SVTR_LCNet',
-                det_model_dir=det_model_dir,
-                rec_model_dir=rec_model_dir,
-                det_limit_side_len=960,
-                det_db_thresh=0.1,
-                det_db_box_thresh=0.3,
-                det_db_unclip_ratio=2.0,
-                drop_score=0.2,
-                det_limit_type='max',
-                use_dilation=True,
-                precision='fp16'
-            )
-
-            # mantém o v3 para comparação
-            self.ocr_models['ppocr_v3'] = self.ocr_models['ppocr_v4']
-
+            
+            try:
+                download_and_extract(det_model_dir, det_url)
+                download_and_extract(rec_model_dir, rec_url)
+            except Exception as e:
+                log.warning(f"Erro ao baixar modelos OCR: {e}")
 
             try:
+                log.info("[TrackletsOCR] A inicializar PaddleOCR (GPU)...")
+                from paddleocr import PaddleOCR
+
+                self.ocr_models['ppocr_v4'] = PaddleOCR(
+                    use_gpu=True,
+                    det=True,
+                    cls=False,
+                    rec=True,
+                    det_algorithm='DB',
+                    rec_algorithm='SVTR_LCNet',
+                    det_model_dir=det_model_dir,
+                    rec_model_dir=rec_model_dir,
+                    det_limit_side_len=960,
+                    det_db_thresh=0.1,
+                    det_db_box_thresh=0.3,
+                    det_db_unclip_ratio=2.0,
+                    drop_score=0.2,
+                    det_limit_type='max',
+                    use_dilation=True,
+                    precision='fp16',
+                )
+                self.ocr_models['ppocr_v3'] = self.ocr_models['ppocr_v4']
+                log.info("[TrackletsOCR] PaddleOCR GPU inicializado com SUCESSO.")
+
+            except Exception as e:
+                log.error(f"[TrackletsOCR] PaddleOCR GPU FALHOU: {e}")
+                # Tentar fallback CPU
+                try:
+                    log.info("[TrackletsOCR] Tentando PaddleOCR em CPU...")
+                    from paddleocr import PaddleOCR
+                    self.ocr_models['ppocr_v4'] = PaddleOCR(
+                        use_gpu=False,
+                        det=True,
+                        cls=False,
+                        rec=True,
+                        det_algorithm='DB',
+                        rec_algorithm='SVTR_LCNet',
+                        det_model_dir=det_model_dir,
+                        rec_model_dir=rec_model_dir,
+                    )
+                    self.ocr_models['ppocr_v3'] = self.ocr_models['ppocr_v4']
+                    log.info("[TrackletsOCR] PaddleOCR CPU inicializado com SUCESSO.")
+                except Exception as e2:
+                    log.error(f"[TrackletsOCR] PaddleOCR CPU também FALHOU: {e2}")
+                    self.ocr_models = {}
+
+            # EasyOCR fallback
+            try:
                 import easyocr
-                self.ocr_models['easyocr'] = easyocr.Reader(['en'], gpu=True)
+                if 'easyocr' not in self.ocr_models:
+                    self.ocr_models['easyocr'] = easyocr.Reader(['en'], gpu=True)
             except ImportError:
                 if self.JNRDebug:
                     print("EasyOCR não instalado")
 
-            # Super-resolução
-            self.rrdb = RRDBNet(
-                num_in_ch=3,
-                num_out_ch=3,
-                num_feat=64,
-                num_block=23,
-                num_grow_ch=32,
-                scale=4
-            )
-            weight_path = "/home/joao/soccernet/pretrained_models/realesrgan/RealESRGAN_x4plus.pth"
-            self.upscaler = RealESRGANer(
-                scale=4,
-                model_path=weight_path,
-                model=self.rrdb,
-                tile=0,
-                pre_pad=0,
-                half=True
-            )
             self.min_votes = min_votes
             self.timing_log_path = os.path.join(os.getenv("HYDRA_RUN_DIR", os.getcwd()), "timing_log.txt")
             with open(self.timing_log_path, "a") as f:
                 f.write(f"\n==== NOVA EXECUÇÃO: {datetime.datetime.now()} ====\n")
+            
             self.min_percent_away = min_percent_away
             self.angle_threshold_1 = angle_threshold_1
             self.angle_threshold_2 = angle_threshold_2
@@ -196,12 +202,16 @@ class TrackletsOCR(DetectionLevelModule):
             self.angle_trunk_motion_threshold = angle_trunk_motion_threshold
             self.jersey_segmentation_mode = jersey_segmentation_mode
 
-            self.sam_model = init_sam_model(
-                checkpoint_path="/home/joao/soccernet/pretrained_models/sam/sam_vit_h_4b8939.pth", 
-                device=self.device
-            )
-            self.maskrcnn_model = init_maskrcnn_model(device=self.device)
-            self.densepose_model = init_densepose_model()
+            # SAM/MaskRCNN/DensePose (comentados para não dar segfault; reativa depois se precisares)
+            # self.sam_model = init_sam_model(
+            #     checkpoint_path="/home/joao/soccernet/pretrained_models/sam/sam_vit_h_4b8939.pth",
+            #     device=self.device
+            # )
+            # self.maskrcnn_model = init_maskrcnn_model(device=self.device)
+            # self.densepose_model = init_densepose_model()
+            self.sam_model = None
+            self.maskrcnn_model = None
+            self.densepose_model = None
 
             self.trunk_motion_debug = defaultdict(list)
             self.jersey_feats_buffer = defaultdict(list)
@@ -558,9 +568,11 @@ class TrackletsOCR(DetectionLevelModule):
                 block_buffer.append(batch_jn)
             # Manter apenas último no buffer
             if imgs_list:
-                self.tracklet_images_global[track_id] = [imgs_list[-1]]
+                last_fid, last_img = imgs_list[-1]
+                self.tracklet_images_global[track_id] = [(last_fid, last_img)]
             else:
                 self.tracklet_images_global[track_id] = []
+
             t_tracklet_fim = time.perf_counter()
             log_timing('tracklet_total', track_id, t_ini=t_tracklet_ini, t_fim=t_tracklet_fim)
 

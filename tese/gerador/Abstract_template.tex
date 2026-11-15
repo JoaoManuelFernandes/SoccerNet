@@ -1,0 +1,52 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{ABSTRACT}
+\endgroup
+
+\noindent The SoccerNet Game State Reconstruction (GSR) challenge consists of reconstructing, on a
+two-dimensional map of the pitch and from single-camera video, the position, team, role and jersey
+number of every player. In the reference pipeline, two components stand out for their poor
+performance, namely jersey number recognition and the assignment of team and pitch side. This
+dissertation intervenes in four of the nine modules of the pipeline, namely it replaces the jersey number
+reader, rewrites the team and pitch-side modules and extends re-identification with a colour
+descriptor, leaving detection, tracking, calibration and role classification unchanged, so that
+any gains can be attributed unambiguously to the changes introduced.
+
+Jersey number recognition was rebuilt around a multimodal vision-and-language model, quantised to
+fit within the available graphics memory and applied to back-region crops obtained through pose
+estimation, with the successive readings of each tracklet combined by voting. For team assignment,
+the appearance-based clustering now audits its own quality, rejecting any partition that leaves
+almost every player in a single group, and falls back on jersey colour when
+re-identification does not separate the teams, and the pitch side is decided by a cascade of
+criteria ending with the goalkeeper's position.
+
+The evaluation covered the $159$ annotated videos of SoccerNet-GSR, comparing the proposed system
+with the reference solution run under the same conditions and on the same tracklets. Jersey number
+accuracy rose from @@JNR_ALL_O@@ to @@JNR_ALL_N@@, improving on @@JNR_UP@@ of the $159$ videos;
+team and pitch-side accuracy rose from @@TEAM_ALL_O@@ to @@TEAM_ALL_N@@, and the number of videos in
+which the team module fails, assessed by visual inspection, fell from $@@VIS_O_EQUIPA@@$ to
+$@@VIS_N_EQUIPA@@$. GS-HOTA, the official challenge metric, rose from @@GS_TEST_O@@ to @@GS_TEST_N@@
+on the test set, with gains of the same order on validation and on the training set, which played
+no part in development. Decomposing the metric by attribute assigns the gain entirely to the two
+attributes that were changed. The comparison also uncovered a calibration defect in the distributed
+configuration of the reference solution, which was corrected before comparing.
+
+Controlled experiments show that the remaining margin in jersey number recognition is bounded by the
+information present in the images. For team assignment, visual inspection characterised the
+remaining failures, most of them due to the unchanged role classifier. Five videos are further shown
+to have their team sides inverted in the reference annotation, which penalises systems that get them
+right.
+
+\hspace{3cm}\\
+\indent
+\textbf{Keywords: } Game State Reconstruction, Jersey Number Recognition, Team Affiliation,
+Multimodal Models, SoccerNet

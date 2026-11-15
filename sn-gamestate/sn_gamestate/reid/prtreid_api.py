@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -35,10 +36,81 @@ from prtreid.scripts.default_config import engine_run_kwargs
 from tracklab.utils.download import download_file
 
 
+_TORSO_PART_IDX = 1   # CocoToSixBodyMasks: head=0, torso=1, left_arm=2, right_arm=3, legs=4,5
+_MASK_THRESHOLD = 0.25  # min BPBreID attention score to include a pixel
+
+
+def _extract_jersey_color_features(crop_rgb: np.ndarray,
+                                   body_mask_torso: np.ndarray | None = None) -> dict:
+    """
+    Extract jersey color features using BPBreID torso mask (Option B) when available,
+    falling back to fixed 25-75% spatial crop (Option A).
+
+    Option B (body_mask_torso provided):
+      Resizes the BPBreID torso attention map to the crop dimensions and uses it
+      as a pixel mask — isolates the jersey fabric, excluding head, arms, legs, skin.
+    Option A (fallback):
+      Uses rows 25-75% of crop height — removes grass/shoes but not arms/skin.
+
+    Returns 27-dim float32 vector: 24 (HSV hist) + 3 (Lab mean, normalised 0-1).
+    """
+    zeros = {
+        "color_vec": np.zeros(27, dtype=np.float32),
+        "mean_rgb": np.zeros(3, dtype=np.float32),
+        "mean_hsv": np.zeros(3, dtype=np.float32),
+        "mean_lab": np.zeros(3, dtype=np.float32),
+    }
+    h, w = crop_rgb.shape[:2]
+    if h < 8 or w < 4:
+        return zeros
+
+    crop_bgr = np.ascontiguousarray(crop_rgb[:, :, ::-1])
+    crop_hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
+    crop_lab = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2Lab)
+
+    # Build pixel selection mask
+    pixel_mask = None
+    if body_mask_torso is not None and body_mask_torso.max() > 0:
+        resized = cv2.resize(body_mask_torso.astype(np.float32), (w, h),
+                             interpolation=cv2.INTER_LINEAR)
+        resized /= resized.max()
+        pixel_mask = (resized >= _MASK_THRESHOLD).astype(np.uint8)
+
+    if pixel_mask is None or pixel_mask.sum() < 16:  # fallback: not enough masked pixels
+        pixel_mask = np.zeros((h, w), dtype=np.uint8)
+        y0, y1 = max(0, int(0.25 * h)), min(h, int(0.75 * h))
+        pixel_mask[y0:y1, :] = 1
+
+    # Per-channel means on selected pixels
+    masked_rgb = crop_rgb[pixel_mask > 0]
+    masked_hsv = crop_hsv[pixel_mask > 0]
+    masked_lab = crop_lab[pixel_mask > 0]
+
+    mean_rgb = masked_rgb.mean(0).astype(np.float32) / 255.0          if len(masked_rgb) else np.zeros(3, np.float32)
+    mean_hsv = masked_hsv.mean(0).astype(np.float32) / np.array([180., 255., 255.]) if len(masked_hsv) else np.zeros(3, np.float32)
+    mean_lab = masked_lab.mean(0).astype(np.float32) / 255.0          if len(masked_lab) else np.zeros(3, np.float32)
+
+    # HSV histogram on selected pixels only
+    hist_parts = []
+    for ch, (lo, hi) in enumerate([(0, 180), (0, 256), (0, 256)]):
+        hist = cv2.calcHist([crop_hsv], [ch], pixel_mask, [8], [lo, hi]).flatten().astype(np.float32)
+        total = hist.sum()
+        hist_parts.append(hist / total if total > 0 else hist)
+    hsv_hist = np.concatenate(hist_parts)  # 24 dims
+
+    color_vec = np.concatenate([hsv_hist, mean_lab])  # 27 dims
+    return {"color_vec": color_vec, "mean_rgb": mean_rgb, "mean_hsv": mean_hsv, "mean_lab": mean_lab}
+
+
 class PRTReId(DetectionLevelModule):
     collate_fn = default_collate
     input_columns = ["bbox_ltwh"]
-    output_columns = ["embeddings", "visibility_scores", "body_masks", "role_detection", "role_confidence"]
+    output_columns = [
+        "embeddings", "embeddings_with_colors",
+        "visibility_scores", "body_masks",
+        "role_detection", "role_confidence",
+        "jersey_mean_rgb", "jersey_mean_hsv", "jersey_mean_lab",
+    ]
     forget_columns = ["embeddings", "body_masks"]
     role_mapping = {'ball': 0, 'goalkeeper': 1, 'other': 2, 'player': 3, 'referee': 4, None: -1}
 
@@ -166,42 +238,38 @@ class PRTReId(DetectionLevelModule):
                 )
             visibility_scores = np.float32(kp_visibility_scores)
 
-        # 🔴 NOVO: concatenar cores da camisola se existirem em detections
-        jersey_rgb = []
-        jersey_hsv = []
-        jersey_lab = []
-        for idx in detections.index:
-            row = detections.loc[idx]
-            if "jersey_mean_rgb" in row and row["jersey_mean_rgb"] is not None:
-                rgb = np.array(row["jersey_mean_rgb"], dtype=np.float32)
-                hsv = np.array(row.get("jersey_mean_hsv", [0,0,0]), dtype=np.float32)
-                lab = np.array(row.get("jersey_mean_lab", [0,0,0]), dtype=np.float32)
-            else:
-                rgb = np.zeros(3, dtype=np.float32)
-                hsv = np.zeros(3, dtype=np.float32)
-                lab = np.zeros(3, dtype=np.float32)
-            jersey_rgb.append(rgb)
-            jersey_hsv.append(hsv)
-            jersey_lab.append(lab)
+        # Extract jersey color using BPBreID torso mask when available (Option B),
+        # falling back to fixed 25-75% spatial crop (Option A).
+        color_results = []
+        for i, crop in enumerate(im_crops):
+            torso_mask = None
+            if (body_masks is not None
+                    and i < body_masks.shape[0]
+                    and body_masks.shape[1] > _TORSO_PART_IDX):
+                torso_mask = body_masks[i, _TORSO_PART_IDX]  # (H_feat, W_feat)
+            color_results.append(_extract_jersey_color_features(crop, torso_mask))
+        color_vecs  = np.stack([r["color_vec"]  for r in color_results], axis=0)  # (N, 27)
+        jersey_rgb  = np.stack([r["mean_rgb"]   for r in color_results], axis=0)  # (N, 3)
+        jersey_hsv  = np.stack([r["mean_hsv"]   for r in color_results], axis=0)  # (N, 3)
+        jersey_lab  = np.stack([r["mean_lab"]   for r in color_results], axis=0)  # (N, 3)
 
-        jersey_rgb = np.stack(jersey_rgb, axis=0)
-        jersey_hsv = np.stack(jersey_hsv, axis=0)
-        jersey_lab = np.stack(jersey_lab, axis=0)
+        # Flatten embeddings to 2D (may be 3D when multi-part: batch × parts × dim)
+        emb_2d = embeddings.reshape(embeddings.shape[0], -1)
 
-        # Concatenar no embedding final
-        embeddings_with_colors = np.concatenate([embeddings, jersey_rgb, jersey_hsv, jersey_lab], axis=1)
+        # embeddings_with_colors = ReID (256) + color (27) = 283 dims
+        embeddings_with_colors = np.concatenate([emb_2d, color_vecs], axis=1)
 
         reid_df = pd.DataFrame(
             {
-                "embeddings": list(embeddings),
-                "embeddings_with_colors": list(embeddings_with_colors),  # 🔴 NOVO
-                "visibility_scores": list(visibility_scores),
-                "body_masks": list(body_masks),
-                "role_detection": roles,
-                "role_confidence": role_confidence,
-                "jersey_mean_rgb": list(jersey_rgb),
-                "jersey_mean_hsv": list(jersey_hsv),
-                "jersey_mean_lab": list(jersey_lab),
+                "embeddings":             list(embeddings),
+                "embeddings_with_colors": list(embeddings_with_colors),
+                "visibility_scores":      list(visibility_scores),
+                "body_masks":             list(body_masks),
+                "role_detection":         roles,
+                "role_confidence":        role_confidence,
+                "jersey_mean_rgb":        list(jersey_rgb),
+                "jersey_mean_hsv":        list(jersey_hsv),
+                "jersey_mean_lab":        list(jersey_lab),
             },
             index=detections.index,
         )

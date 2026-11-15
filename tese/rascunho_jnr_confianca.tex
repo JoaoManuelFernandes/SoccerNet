@@ -1,0 +1,273 @@
+% =====================================================================================
+% RASCUNHO 2026-09-26 — Reconhecimento do número: controlo pela confiança da leitura
+% Números marcados com [P] são PROVISÓRIOS (117 vídeos); trocar pelos finais (159) amanhã.
+% Onde entra cada bloco está indicado no cabeçalho de cada um.
+% =====================================================================================
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO A — Cap. 3 (Chapter3_final.tex). SUBSTITUI o 2.º parágrafo de
+% "Recorte da Região Dorsal por Estimativa de Pose" (o do filtro de qualidade).
+% -------------------------------------------------------------------------------------
+
+Antes de prosseguir, cada recorte passa por um filtro de qualidade que descarta os casos sem
+informação utilizável. São rejeitados os recortes com dimensões inferiores a $15\times20$ píxeis,
+tipicamente jogadores muito distantes da câmara, e os recortes desfocados, quantificados pela
+variância do Laplaciano (limiar de $15$). Estes limiares são deliberadamente permissivos. Numa
+primeira versão do módulo, o filtro de qualidade era a única proteção contra leituras de recortes
+sem informação e tinha de ser exigente ($25\times30$ píxeis e nitidez de $40$), à custa de excluir
+jogadores cujo número era, ainda assim, legível. Com o controlo pela confiança da leitura descrito
+na Secção~\ref{sec:met-jnr-confianca}, é o próprio modelo que indica quando não conseguiu ler, e o
+filtro passa a ter apenas a função de evitar chamadas inúteis ao modelo.
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO B — Cap. 3. SUBSTITUI a subsecção "Agregação Temporal por Votação" inteira
+% (mantém a figura fig:jnr-crops, que continua a fazer sentido).
+% -------------------------------------------------------------------------------------
+
+\subsection{Confiança da Leitura e Decisão por Janela}\label{sec:met-jnr-confianca}
+
+A leitura efetuada sobre um recorte isolado é, por natureza, ruidosa. Uma pose desfavorável, uma
+oclusão momentânea ou variações de iluminação são suficientes para induzir erros na inferência de
+um \emph{frame}, mesmo quando a numeração se mantém globalmente legível ao longo do
+\emph{tracklet} (Figura~\ref{fig:jnr-crops}). A decisão final tem, por isso, de combinar várias
+leituras, e a forma de as combinar determina o tipo de erro que o sistema comete.
+
+Os recortes de cada \emph{tracklet} que passam o filtro de qualidade são ordenados no tempo e
+divididos em janelas de seis recortes consecutivos. Cada janela é lida pelo Qwen2.5-VL a partir
+dos seus cinco recortes mais nítidos, com a mesma \emph{prompt} e a mesma descodificação
+determinística descritas na secção anterior. Além da resposta, regista-se a probabilidade que o
+modelo atribuiu a cada \emph{token} gerado. A confiança da janela é o produto das probabilidades
+dos \emph{tokens} que formam o número. Um número de dois dígitos lido com segurança tem confiança
+próxima de $1$, enquanto um número adivinhado num recorte pouco legível raramente ultrapassa
+$0.3$, porque a incerteza em qualquer dos dígitos baixa o produto.
+
+A decisão segue duas regras simples:
+\begin{enumerate}
+    \item uma janela só vota se tiver lido um número com confiança igual ou superior a $0.5$; as
+    janelas com confiança inferior e as janelas em que o modelo recusou a leitura não votam;
+    \item o \emph{tracklet} recebe o número mais votado entre as janelas que votaram; se nenhuma
+    votou, o \emph{tracklet} fica sem número.
+\end{enumerate}
+
+Esta regra resulta de um diagnóstico feito ao próprio módulo. Na primeira versão, a função que
+chamava o modelo devolvia sempre a mesma confiança fixa, qualquer que fosse a certeza da leitura,
+e a decisão dependia só da contagem de votos, com uma quota mínima de concordância entre janelas.
+Um número nítido e um número adivinhado num recorte desfocado pesavam o mesmo. Quando um jogador
+era visto durante muito tempo em más condições, as leituras erradas acumulavam votos suficientes
+para vencer, e o erro propagava-se a centenas de deteções. A confiança do modelo já existia, mas
+era descartada. Usá-la permite separar as leituras seguras das restantes antes da votação, em vez
+de tentar compensar a posteriori com quotas de concordância.
+
+O limiar de $0.5$ traduz uma escolha de projeto. No SoccerNet-GSR, um número errado não só falha a
+correspondência com a anotação como a atribui a uma identidade que não existe, enquanto um número
+em falta apenas deixa de a atribuir. Entre errar e não responder, o sistema foi desenhado para não
+responder. O custo desta escolha, medido no Capítulo~\ref{cap:resultados}, é um ligeiro aumento dos
+jogadores que ficam sem número.
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO C — Cap. 3, Tabela tab:hiperparametros. SUBSTITUIR as linhas do filtro de qualidade e
+% de "leitura e votação" por estas.
+% -------------------------------------------------------------------------------------
+
+%        \multicolumn{3}{|l|}{\emph{Reconhecimento de número de camisola (filtro de qualidade)}} \\
+%        \hline
+%        Dimensão mínima do recorte   & $15\times20$~px & Rejeita jogadores muito distantes \\
+%        \hline
+%        Nitidez mínima               & $15.0$          & Variância do Laplaciano \\
+%        \hline
+%        \multicolumn{3}{|l|}{\emph{Reconhecimento de número de camisola (leitura e decisão)}} \\
+%        \hline
+%        Modelo de leitura            & Qwen2.5-VL-3B (4 bits) & Inferência do número \\
+%        \hline
+%        Recortes por janela          & $6$             & Unidade de decisão temporal \\
+%        \hline
+%        Recortes lidos por janela    & $5$             & Os mais nítidos da janela \\
+%        \hline
+%        Confiança mínima para votar  & $0.5$           & Produto das probabilidades dos \emph{tokens} \\
+%        \hline
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO D — Cap. 4 (gerador/Chapter4_template.tex). NOVA subsecção, a seguir a
+% "Resultados" (sec:res_jnr_resultados) e ANTES de "Teto da Abordagem".
+% -------------------------------------------------------------------------------------
+
+\subsection{Controlo pela Confiança da Leitura}\label{sec:res_jnr_confianca}
+
+A exatidão por \emph{tracklet} da Tabela~\ref{tab:jnr} trata todos os \emph{tracklets} por igual.
+O GS-HOTA, pelo contrário, conta deteções, e um \emph{tracklet} longo com o número errado pesa
+tanto como centenas de \emph{tracklets} curtos. Para perceber onde estava o custo do número na
+métrica oficial, as deteções de jogadores emparelhadas com a anotação foram classificadas em cinco
+categorias, conforme a anotação tem ou não número e o sistema atribui ou não um número
+(Tabela~\ref{tab:jnr-categorias}).
+
+Na primeira versão do módulo, sobre os $159$ vídeos, $51.4\%$ das deteções recebiam o número
+certo, $12.3\%$ recebiam um número errado e $2.5\%$ recebiam um número quando o jogador não tinha
+número visível na anotação. A maior parte do erro estava em \emph{tracklets} longos: $9.2\%$ de
+todas as deteções pertenciam a \emph{tracklets} com mais de $200$ \emph{frames} que terminavam com
+um número errado. Reconstituindo os votos de cada janela a partir dos registos de execução, em
+cerca de um terço das deteções com número errado o número certo chegou a ser lido, mas perdeu a
+votação para leituras erradas mais numerosas. Nas restantes, o número certo nunca foi lido, e as
+leituras erradas vinham de recortes em que o número não era legível. Em ambos os casos, o que faltava à decisão era saber
+quais das leituras eram seguras.
+
+A regra de decisão pela confiança (Secção~\ref{sec:met-jnr-confianca}) foi primeiro testada numa
+amostra aleatória de $10$ vídeos de teste e validação e, confirmada a tendência, alargada por fases
+a amostras aleatórias sucessivas, até cobrir % [P]
+$117$ dos $159$ vídeos. % [P]
+Em cada fase, a primeira versão e a versão com confiança foram comparadas sobre as mesmas deteções,
+com a mesma anotação e com o GS-HOTA oficial. A Tabela~\ref{tab:jnr-categorias} resume o resultado.
+
+\begin{table}[htbp]
+    \centering
+    \caption{O que acontece às deteções de jogadores, em percentagem, na primeira versão do módulo e
+    com a decisão pela confiança da leitura ($117$ vídeos). % [P]
+    }
+    \label{tab:jnr-categorias}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        \textbf{Categoria} & \textbf{Primeira versão} & \textbf{Com confiança} & \textbf{$\Delta$} \\
+        \hline
+        Número certo                               & $50.6$ & $56.8$ & $+6.2$ \\ % [P]
+        \hline
+        Número errado                              & $12.5$ & $4.3$  & $-8.2$ \\ % [P]
+        \hline
+        Número atribuído sem número na anotação    & $2.5$  & $0.5$  & $-1.9$ \\ % [P]
+        \hline
+        Sem número, e a anotação também não tem    & $11.0$ & $12.9$ & $+1.9$ \\ % [P]
+        \hline
+        Sem número, mas a anotação tem             & $23.5$ & $25.5$ & $+2.0$ \\ % [P]
+        \hline
+    \end{tabular}
+\end{table}
+
+O efeito principal é a redução dos números errados para cerca de um terço, de $12.5\%$ para
+$4.3\%$ das deteções, e dos números atribuídos a jogadores sem número de $2.5\%$ para $0.5\%$. % [P]
+Ao mesmo tempo, o número certo sobe $6.2$ pontos percentuais. % [P]
+Este resultado, que à partida parece contraditório com uma regra mais conservadora, explica-se pelo
+filtro de qualidade mais permissivo: como a confiança passou a impedir as leituras inseguras, foi
+possível admitir recortes mais pequenos e menos nítidos, e parte deles contém um número legível que
+a primeira versão nem chegava a ver. O custo é o previsto no desenho da regra. Os jogadores que
+ficam sem número apesar de o terem aumentam $2.0$ pontos, sobretudo casos em que o modelo leu o % [P]
+número certo em várias janelas, mas sempre com confiança abaixo do limiar.
+
+No GS-HOTA oficial, a subida é consistente nos três subconjuntos
+(Tabela~\ref{tab:jnr-confianca-gshota}), incluindo o de treino, que não interveio em nenhuma decisão.
+
+\begin{table}[htbp]
+    \centering
+    \caption{GS-HOTA oficial com a primeira versão do módulo e com a decisão pela confiança da
+    leitura, sobre os mesmos vídeos ($117$). % [P]
+    }
+    \label{tab:jnr-confianca-gshota}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        \textbf{Conjunto} & \textbf{Primeira versão} & \textbf{Com confiança} & \textbf{$\Delta$} \\
+        \hline
+        Teste ($41$ vídeos)     & $43.01$ & $47.29$ & $+4.29$ \\ % [P]
+        \hline
+        Validação ($37$ vídeos) & $35.55$ & $37.19$ & $+1.64$ \\ % [P]
+        \hline
+        Treino ($39$ vídeos)    & $41.91$ & $45.00$ & $+3.09$ \\ % [P]
+        \hline
+    \end{tabular}
+\end{table}
+
+A melhoria não é uniforme. O GS-HOTA desce em $18$ dos $117$ vídeos, na maioria por menos de um % [P]
+ponto. A inspeção dos casos com maior descida mostra dois padrões. No primeiro, o modelo lê o número
+certo de forma repetida mas sempre com pouca confiança; no SNGS-056, um jogador com o número 14 foi
+lido como 14 em nove de doze janelas, todas com confiança entre $0.3$ e $0.43$, e ficou sem número,
+quando a primeira versão o acertava. É o custo direto do limiar. No segundo, a descida resulta da
+própria anotação. No SNGS-188, um \emph{tracklet} lido como 14 com confiança entre $0.6$ e $0.8$ em
+quase todas as janelas está emparelhado com um jogador anotado com o número 34, e os recortes
+mostram de forma legível um 14. Casos semelhantes de anotação incompleta ou inconsistente foram
+encontrados noutros vídeos, em que um número claramente visível não consta da anotação.
+
+No extremo oposto, o SNGS-196 ilustra o comportamento pretendido. A primeira versão atribuía o
+número certo a $9\%$ das deteções e um número errado a $16\%$; com a decisão pela confiança, o
+número certo sobe para $50\%$ e o número errado desaparece, e o GS-HOTA do vídeo passa de $17.1$
+para $38.7$. Dos quinze jogadores cujo número muda, doze que estavam sem número passam a ter o
+número certo, dois números errados são corrigidos e um terceiro é retirado. Nenhum jogador que
+estava correto passa a errado.
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO E — Cap. 4. NOVA subsecção a seguir à anterior: alternativas testadas e rejeitadas.
+% -------------------------------------------------------------------------------------
+
+\subsection{Alternativas Testadas e Rejeitadas}\label{sec:res_jnr_rejeitadas}
+
+Antes e depois de chegar à decisão pela confiança, foram avaliadas outras formas de reduzir o erro
+do número. Todas foram medidas com o mesmo critério, o GS-HOTA oficial por subconjunto e vídeo a
+vídeo, e só seriam aceites se não piorassem nenhum dos indicadores de erro. Nenhuma cumpriu esse
+critério.
+
+\paragraph{Fusão de fragmentos do seguimento.} Um mesmo jogador é frequentemente dividido pelo
+\emph{tracker} em vários \emph{tracklets}, alguns dos quais demasiado curtos para serem lidos.
+Juntar fragmentos da mesma equipa que nunca coexistem no tempo e são próximos no espaço de
+reidentificação, propagando o número do fragmento mais confiante, aumentou a exatidão por
+\emph{tracklet} em $5.5$ pontos percentuais. O GS-HOTA subiu apenas $0.04$ pontos. Os fragmentos
+corrigidos eram quase todos curtos e representavam poucas deteções, e as fusões erradas
+degradavam a associação entre identidades.
+
+\paragraph{Regras de decisão alternativas.} Somar as confianças de cada número, em vez de contar
+as janelas confiantes, não superou a regra final. Uma regra híbrida, que recorria à decisão da
+primeira versão quando nenhuma janela era confiante, desde que houvesse pelo menos duas janelas
+concordantes, pretendia recuperar os casos de leitura certa com pouca confiança. Numa amostra de
+$20$ vídeos não trouxe ganho no GS-HOTA face à regra final e, no conjunto de teste, voltou a
+atribuir números a jogadores sem número, que passaram de $0.1\%$ para $1.1\%$ das deteções.
+
+\paragraph{Unicidade do número dentro da equipa.} Dois jogadores da mesma equipa não podem ter o
+mesmo número em campo ao mesmo tempo. A inspeção visual mostrou casos em que esta regra é violada,
+como no SNGS-196, em que um \emph{tracklet} perde o jogador que seguia, reaparece colado a outro
+jogador da mesma equipa e leva consigo o número do primeiro. Testaram-se duas formas de impor a
+regra: retirar o número ao \emph{tracklet} mais fraco nos \emph{frames} em que dois
+\emph{tracklets} da mesma equipa partilham o número, e, numa versão mais restrita, fazê-lo apenas
+quando os dois estão a mais de $5$~m de distância no campo, retirando o número ao que apareceu mais
+recentemente. Numa primeira contagem em $60$ vídeos, dos $107$ conflitos encontrados, $68$ envolviam
+dois \emph{tracklets} corretos, o mesmo jogador dividido em dois \emph{tracklets} sobrepostos por
+alguns \emph{frames}. As duas versões deixaram o GS-HOTA igual ou mais baixo nos três subconjuntos, com descidas até % [P]
+$0.15$ pontos, e pioraram mais de vinte vídeos. Mesmo no SNGS-196, retirar o número ao troço % [P]
+errado baixou o GS-HOTA do vídeo, porque a métrica penaliza uma identidade cujo número muda a meio
+mais do que ganha no troço corrigido. O erro de fundo é uma troca de identidade do seguimento, e
+não se corrige do lado do número sem alterar o \emph{tracker}, que está fora do âmbito deste
+trabalho.
+
+\paragraph{Lição sobre a métrica.} Estas experiências mostram que ganhos medidos por
+\emph{tracklet} não se traduzem necessariamente em ganhos no GS-HOTA, que pondera por deteção e
+avalia a coerência das identidades ao longo do tempo. Uma correção que atue sobre \emph{tracklets}
+curtos é praticamente invisível na métrica oficial, e uma correção que altere o número de parte de
+um \emph{tracklet} pode prejudicá-la mesmo quando está certa. Por esta razão, todas as decisões
+finais do módulo foram tomadas com a métrica oficial e não com indicadores intermédios.
+
+
+% -------------------------------------------------------------------------------------
+% BLOCO F — Cap. 4, "Teto da Abordagem". SUBSTITUI o último parágrafo ("O diagnóstico acabou
+% por ser o mesmo..."), que deixou de ser verdade: a margem estava, em parte, na decisão.
+% -------------------------------------------------------------------------------------
+
+O diagnóstico foi o mesmo nas três experiências. Nos casos difíceis, o modelo falha a leitura
+porque a informação não está presente nos \emph{pixels}, seja pela distância da câmara, seja pela
+orientação do jogador, e nenhuma reponderação heurística, ajuste de contraste ou recombinação de
+vistas cria informação onde ela não existe. O que estas experiências não resolviam era outro
+problema: o sistema não sabia distinguir as leituras em que o modelo tinha visto o número das
+leituras em que o tinha adivinhado. Essa informação não estava na imagem, mas no próprio modelo,
+e a sua utilização na decisão, apresentada na Secção~\ref{sec:res_jnr_confianca}, foi o que
+permitiu reduzir o erro sem alterar a leitura.
+
+
+% -------------------------------------------------------------------------------------
+% O QUE MUDA NO RESTO DA TESE QUANDO HOUVER OS 159 VÍDEOS (não é texto da tese):
+%  - tab:jnr (exatidão por tracklet) e tab:jnr-distribuicao: recalcular com o sistema final;
+%  - GS-HOTA por subconjunto (sec:res_gshota), decomposição por atributo, anexo vídeo a vídeo,
+%    Resumo/Abstract, Introdução e Conclusão: números do sistema final;
+%  - Custo computacional: a releitura com confiança acrescenta ~4 min por vídeo (medido: 82 min
+%    para 20 vídeos); dizer que pode ser integrada na primeira leitura (a confiança sai da mesma
+%    chamada ao modelo), o que eliminaria a segunda passagem;
+%  - tab:jnr-categorias e tab:jnr-confianca-gshota: trocar [P] pelos valores dos 159;
+%  - Conclusão/trabalho futuro: corte dos tracklets nas trocas de identidade (tracker) como a
+%    origem dos conflitos de número; limiar de confiança por comprimento do tracklet.
+% -------------------------------------------------------------------------------------

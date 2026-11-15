@@ -1,0 +1,147 @@
+% ###########################################################################
+% INTEGRAÇÃO DO CONJUNTO DE TREINO NA DISSERTAÇÃO
+% A avaliação passa de 103 para 160 vídeos, com um terceiro conjunto
+% independente. São cinco alterações, todas assinaladas.
+% ###########################################################################
+
+
+% ===========================================================================
+% (A) RESUMO — substituir o quarto parágrafo
+% ===========================================================================
+
+A avaliação abrangeu 160 vídeos, correspondentes aos três subconjuntos anotados do
+SoccerNet-GSR. No reconhecimento do número, a exatidão subiu de 18.6\% para 39.5\% em
+teste, com melhoria em 38 dos 39 vídeos comparados e sem regressões, e mantém-se em
+35.7\% em validação e 35.2\% em treino. A atribuição de equipa passou de 85.4\% para
+97.8\% em teste e, em validação, a recalibração conjunta dos limiares elevou-a de 73.3\%
+para 82.4\%. No conjunto de teste, o GS-HOTA, métrica oficial do desafio, alcançou cerca
+de 44\%, praticamente o dobro dos 22.3\% da solução de referência no mesmo conjunto. No
+conjunto de treino, nunca usado no desenvolvimento, o valor foi de 42.6\%, o que indica
+que o desempenho não decorre de sobreajuste ao conjunto de teste.
+
+
+% ===========================================================================
+% (B) ABSTRACT — substituir o parágrafo correspondente
+% ===========================================================================
+
+The evaluation covered 160 videos, corresponding to the three annotated subsets of
+SoccerNet-GSR. For jersey number recognition, accuracy rose from 18.6\% to 39.5\% on the
+test set, improving on 38 of the 39 videos compared and with no regressions, and remains
+at 35.7\% on validation and 35.2\% on training. Team assignment improved from 85.4\% to
+97.8\% on the test set and, on the validation set, the joint recalibration of the
+thresholds raised it from 73.3\% to 82.4\%. On the test set, GS-HOTA, the official
+challenge metric, reached about 44\%, roughly double the 22.3\% of the reference solution
+on the same set. On the training set, never used during development, it reached 42.6\%,
+indicating that the performance does not stem from overfitting to the test set.
+
+
+% ===========================================================================
+% (C) SECÇÃO 3.4.1 (Ambiente computacional e conjunto de dados)
+%     substituir o parágrafo do conjunto de dados
+% ===========================================================================
+
+A validação experimental utilizou o conjunto de dados SoccerNet-GSR, constituído por
+sequências de vídeo anotadas e divididas nos subconjuntos de treino, validação e teste.
+O protocolo de avaliação abrangeu a totalidade das 160 sequências anotadas,
+correspondentes aos conjuntos de treino (57 vídeos), de validação (54 vídeos) e de teste
+(49 vídeos). Para cada interveniente, este conjunto disponibiliza a anotação de
+referência (\emph{ground truth}) da posição no terreno de jogo, da equipa, da função e do
+número de camisola, permitindo tanto a avaliação integrada do sistema como o teste
+isolado de cada módulo.
+
+Importa esclarecer o papel de cada subconjunto neste trabalho, uma vez que difere do
+habitual. Nenhum dos módulos desenvolvidos envolve treino de modelos, pelo que o
+subconjunto de treino não foi usado para aprender parâmetros. Os limiares de decisão
+foram afinados sobre os conjuntos de teste e de validação, como se descreve na
+Secção~\ref{sec:met_lado}, e o conjunto de treino permaneceu inteiramente por observar
+até à fase final. Serve, por isso, o propósito de um conjunto de retenção, ou seja, de
+medir o desempenho em dados que não intervieram em nenhuma decisão de conceção.
+
+
+% ===========================================================================
+% (D) ABERTURA DO CAPÍTULO DE RESULTADOS
+% ===========================================================================
+
+Este capítulo apresenta e discute os resultados obtidos com os dois módulos otimizados.
+Recorda-se que, à exceção destes módulos, todo o \emph{pipeline} se manteve inalterável,
+idêntico ao da \emph{baseline}. Deste modo, qualquer variação de desempenho é atribuível,
+sem ambiguidade, ao desenvolvimento integrado. A avaliação decorre nos três subconjuntos
+anotados do SoccerNet-GSR, a saber, teste com 49 vídeos, validação com 54 e treino com
+57, num total de 160 sequências. Apresentam-se primeiro os resultados de cada módulo de
+forma isolada, com métricas dedicadas, e depois o seu efeito no sistema completo, medido
+pelo GS-HOTA.
+
+
+% ===========================================================================
+% (E) TABELA 4.1 (exatidão do número de camisola) — acrescentar a linha do treino
+% ===========================================================================
+
+\begin{table}[htbp]
+\centering
+\caption{Exatidão do reconhecimento do número de camisola, por \emph{tracklet}.}
+\label{tab:jnr}
+\begin{tabular}{lccc}
+\hline
+\textbf{Conjunto} & \textit{\textbf{Baseline}} \textbf{(MMOCR)} & \textbf{Proposto (Qwen-VL)} & $\Delta$ \\
+\hline
+Teste (39 vídeos)      & 18.6\% (262/1405) & 39.5\% (554/1404) & +20.9 pp \\
+Validação (54 vídeos)  & ---               & 35.7\% (617/1726) & --- \\
+Treino (57 vídeos)     & ---               & 35.2\% (781/2216) & --- \\
+\hline
+\end{tabular}
+\end{table}
+
+
+% ===========================================================================
+% (F) SECÇÃO 4.1.1 — parágrafo a acrescentar depois da discussão da Tabela 4.1
+% ===========================================================================
+
+O comportamento no conjunto de treino confirma esta leitura. Sendo um conjunto que não
+interveio em nenhuma decisão de conceção, os 35.2\% aí obtidos, sobre 2216
+\emph{tracklets}, situam-se ao nível da validação e apenas quatro pontos abaixo do teste.
+A diferença que separa o teste dos outros dois conjuntos não decorre, portanto, de
+qualquer ajuste ao teste, mas das condições de captação de cada conjunto, questão
+retomada na Secção~\ref{sec:desempenho_global}.
+
+
+% ===========================================================================
+% (G) TABELA 4.4 (GS-HOTA) — substituir pela versão com os três conjuntos
+% ===========================================================================
+
+\begin{table}[htbp]
+\centering
+\caption{GS-HOTA nos três subconjuntos anotados. A solução de referência é a
+\emph{baseline} oficial avaliada no conjunto de teste. Os valores do sistema proposto são
+aproximações calculadas localmente, como média das avaliações por lote.}
+\label{tab:gshota}
+\begin{tabular}{lcc}
+\hline
+\textbf{Conjunto} & \textbf{Vídeos} & \textbf{GS-HOTA} \\
+\hline
+Solução de referência oficial (\emph{baseline}), teste & 49 & 22.26\% \\
+\hline
+Sistema proposto, teste      & 49 & 44.26\% \\
+Sistema proposto, treino     & 57 & 42.57\% \\
+Sistema proposto, validação  & 54 & 31.95\% \\
+\hline
+\end{tabular}
+\end{table}
+
+
+% ===========================================================================
+% (H) SECÇÃO 4.3 — parágrafo a acrescentar depois da discussão da Tabela 4.4
+% ===========================================================================
+
+O conjunto de treino oferece a verificação mais exigente deste resultado. Por não ter
+sido observado durante o desenvolvimento, nem ter contribuído para a afinação de qualquer
+limiar, funciona como conjunto de retenção. O valor aí obtido, 42.57\% sobre 57 vídeos,
+fica a 1.7 pontos do conjunto de teste, uma diferença pequena face à dispersão entre
+lotes, que vai de 29.5\% a 55.2\%. Não há, portanto, indício de que o desempenho no
+conjunto de teste resulte de sobreajuste, o que constitui a objeção mais previsível a um
+trabalho que afina limiares sobre parte dos dados de avaliação.
+
+Uma ressalva de método deve acompanhar esta comparação. O conjunto de treino foi
+processado após uma reconstrução do ambiente de execução, que passou de Python 3.10 para
+Python 3.12 e de uma versão anterior do PyTorch para a 2.6. O código dos módulos é o
+mesmo e as versões das bibliotecas foram fixadas, mas não se pode excluir que parte da
+diferença observada tenha origem nessa mudança e não no conjunto de dados.

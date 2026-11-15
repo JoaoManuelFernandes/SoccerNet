@@ -25,3 +25,35 @@ realesrgan-ncnn-vulkan/
 .vscode/
 __pycache__/
 *.log
+
+# === Organização tese-final (2026-11-15) ===
+# Ambientes e bibliotecas locais
+venv_*/
+*_libs/
+ffbin/
+weights/
+# Experiências arquivadas (fora do git, no disco)
+arquivo/
+# Produto: repositório próprio e privado
+produto_testes/
+# Dados e resultados pesados (ficam no disco)
+calib_dumps/
+videos_auditoria/
+nosso_out/states*/
+nosso_out/logs/
+baseline_out/states*/
+baseline_out/logs*/
+baseline_out/videos/
+team_exp/feats/
+team_exp/hsv/
+sn-gamestate/docs/final_report/videos/
+sn-gamestate/docs/full_report/videos/
+# Ficheiros pesados por tipo
+*.mp4
+*.avi
+*.ts
+*.pklz
+*.pkl
+*.zip
+*.tar.gz
+*.bak_*

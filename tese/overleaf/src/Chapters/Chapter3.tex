@@ -1,0 +1,222 @@
+\chapter{Resultados}\label{cap:resultados}
+
+Este capítulo apresenta e discute os resultados obtidos com os dois módulos otimizados. Recorda-se que, à exceção destes módulos, todo o \emph{pipeline} se manteve inalterado, idêntico ao da \emph{baseline}. Deste modo, qualquer variação de desempenho é atribuível, sem ambiguidade, às alterações introduzidas. A avaliação decorre nos três subconjuntos anotados do SoccerNet-GSR, teste com $49$ vídeos, validação com $54$ e treino com $57$, num total de $160$ sequências. Apresentam-se primeiro os resultados de cada módulo de forma isolada, com métricas dedicadas, e depois o seu efeito no sistema completo, medido pelo GS-HOTA.
+
+Recorde-se ainda, da Secção~\ref{sec:dados}, que o conjunto de treino não interveio em nenhuma decisão de conceção e funciona neste trabalho como conjunto de retenção.
+
+\section{Reconhecimento de Número de Camisola}
+
+O reconhecimento do número de camisola é avaliado pela exatidão por \emph{tracklet}, calculada por correspondência (IoU $\geq 0.30$) entre as deteções e a anotação de referência, considerando apenas os \emph{tracklets} suficientemente consistentes para excluir a influência de trocas de identidade do \emph{tracker}. A \emph{baseline} MMOCR foi avaliada a partir dos resultados de \emph{tracking} da solução de referência, disponibilizados publicamente pelos organizadores e que já incluem a leitura de número da MMOCR. Ambas as versões são avaliadas com o mesmo protocolo, o mesmo limiar de correspondência e a mesma anotação de referência, pelo que a comparação é direta. Os conjuntos de \emph{tracklets} elegíveis diferem em um caso, $1405$ contra $1404$, por decorrerem de execuções de \emph{tracking} distintas. Esta comparação incide sobre os $39$ vídeos de teste para os quais o estado de \emph{tracking} oficial disponibiliza a leitura da \emph{baseline}. Os restantes $10$ vídeos do conjunto de teste foram processados de raiz, não existindo para estes uma \emph{baseline} direta de comparação.
+
+\subsection{Resultados}
+
+A Tabela~\ref{tab:jnr-resumo} resume os resultados. No conjunto de teste, a exatidão do reconhecimento subiu de $18.6\%$ para $39.5\%$, mais do que duplicando o desempenho da \emph{baseline}. Esta melhoria verifica-se em $38$ dos $39$ vídeos comparados, com um único empate e nenhuma regressão. A \emph{baseline} não pôde ser medida nos outros dois conjuntos, pois o estado de \emph{tracking} oficial só está disponível para o conjunto de teste.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Exatidão do reconhecimento do número de camisola, por \emph{tracklet}.}
+    \label{tab:jnr-resumo}
+    \begin{tabular}{lccc}
+        \hline
+        \textbf{Conjunto} & \textbf{\emph{Baseline} (MMOCR)} & \textbf{Proposto (Qwen-VL)} & \textbf{$\Delta$} \\
+        \hline
+        Teste ($39$ vídeos)     & $18.6\%$ ($262/1405$) & $39.5\%$ ($554/1404$) & $+20.9$ pp \\
+        Validação ($54$ vídeos) & ---                   & $35.7\%$ ($617/1726$) & --- \\
+        Treino ($57$ vídeos)    & ---                   & $35.2\%$ ($781/2216$) & --- \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Nos conjuntos de validação e de treino, o módulo mantém um desempenho próximo, com $35.7\%$ e $35.2\%$ respetivamente, o que confirma que a abordagem generaliza para além dos vídeos usados no desenvolvimento. O valor do conjunto de treino merece destaque particular. Por não ter intervindo em nenhuma decisão de conceção, e assentando em $2216$ \emph{tracklets}, é a medida mais exigente de que se dispõe, e situa-se a meio ponto da validação. A diferença que separa estes dois conjuntos do teste não decorre, assim, de qualquer ajuste ao teste, mas das condições de captação de cada conjunto.
+
+
+A distribuição dos ganhos por vídeo (Tabela~\ref{tab:jnr-distribuicao}) mostra que a melhoria não se concentra num punhado de casos, mas se distribui por todo o conjunto. Mais de metade dos vídeos ganha entre $10$ e $30$ pontos percentuais, e um terço ultrapassa os $30$ pontos, o que evidencia um ganho sistemático e não pontual.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Distribuição dos ganhos do reconhecimento do número de camisola sobre a \emph{baseline}
+    (conjunto de teste, $39$ vídeos).}
+    \label{tab:jnr-distribuicao}
+    \begin{tabular}{lc}
+        \hline
+        \textbf{Ganho face à \emph{baseline}} & \textbf{Nº de vídeos} \\
+        \hline
+        Superior a $+40$ pp & $5$ \\
+        De $+30$ a $+40$ pp & $7$ \\
+        De $+20$ a $+30$ pp & $12$ \\
+        De $+10$ a $+20$ pp & $11$ \\
+        De $+1$ a $+10$ pp  & $3$ \\
+        Empate              & $1$ \\
+        Regressão           & $0$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Teto da Abordagem}
+
+Alcançado este ganho, restava perceber onde residiam os limites da abordagem. Para isso, testaram-se três abordagens de melhoria num conjunto de controlo de seis vídeos (os quatro com piores resultados e dois em que o sistema já funcionava bem), sob a premissa de resolver os casos falhados sem prejudicar os bem-sucedidos.
+
+A primeira abordagem atribuiu a cada recorte uma pontuação de qualidade, calculada a partir da nitidez da imagem, da área do recorte e do número de recortes que sustentavam a leitura na janela temporal. Na votação, as leituras com maior pontuação passaram a ter mais peso. O resultado foi um ganho residual e inconsistente, sem qualquer alteração nos vídeos mais problemáticos. A segunda, um realce de contraste por CLAHE (\emph{Contrast Limited Adaptive Histogram Equalization}) aplicado aos recortes antes da leitura pelo VLM, teve um impacto claramente negativo, degradando mais vídeos do que aqueles que melhorou. A terceira, a apresentação de todas as vistas de um \emph{tracklet} numa única imagem composta em grelha (permitindo ao modelo agregar a evidência internamente, em vez de recorrer à votação temporal externa), também não produziu melhorias.
+
+O diagnóstico acabou por ser o mesmo nas três experiências. Nos casos difíceis, o modelo falha a leitura do número simplesmente porque a informação não está presente nos \emph{pixels}, seja pela distância da câmara, seja pela orientação do jogador. Nenhuma reponderação de votos, ajuste de contraste ou recombinação de vistas cria informação onde ela não existe, e alterar a imagem de entrada acaba apenas por desestabilizar casos que já eram lidos com sucesso.
+
+Estes testes delimitam, na prática, o limite do que é possível extrair do material de entrada disponível. A margem de progressão que resta não está na leitura nem na agregação final, mas numa fase anterior do \emph{pipeline}, na qualidade das deteções e dos recortes que alimentam o módulo.
+
+\section{Atribuição da Equipa e do Lado do Campo}
+
+A atribuição da equipa e do lado do campo é avaliada com a mesma métrica por \emph{tracklet} utilizada na secção anterior, considerando uma sobreposição com a anotação de referência dada por IoU $\geq 0.30$. O termo de comparação é a solução de referência, ou seja, o desempenho do \emph{pipeline} original, antes das alterações introduzidas neste trabalho. As duas versões são avaliadas nos mesmos $39$ vídeos de teste usados na secção anterior e diferem apenas no módulo de atribuição, pelo que qualquer diferença de resultados se deve exclusivamente a essas alterações.
+
+\subsection{Resultados}
+
+A Tabela~\ref{tab:team-resultados} apresenta os resultados obtidos no conjunto de teste, detalhando a contribuição de cada alteração para o desempenho global. A exatidão subiu de $85.4\%$ para $97.8\%$. Olhando pelo lado do erro, os \emph{tracklets} mal atribuídos passaram de $256$ para $38$, num total de $1755$, o que corresponde a uma redução de cerca de $85\%$.
+
+Este ganho decorre sobretudo da correção do agrupamento e da cascata de votação, que permitiu recuperar vídeos onde a média simples da solução de referência falhava por completo, com atribuições próximas de $0\%$ em alguns casos. Por fim, o mecanismo de desempate pela deriva do guarda-redes permitiu recuperar o último vídeo, cujas posições médias eram indistinguíveis, fixando o resultado final nos $97.8\%$.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Contributo incremental de cada alteração para a atribuição da equipa e lado do campo (conjunto de teste).}
+    \label{tab:team-resultados}
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Estado do sistema} & \textbf{Exatidão} & \textbf{$\Delta$} \\
+        \hline
+        Solução de referência (\emph{baseline})        & $85.4\%$ ($1499/1755$) & --- \\
+        \; + agrupamento robusto e cascata de votação   & $96.1\%$ ($1686/1755$) & $+10.7$ pp \\
+        \; + desempate pela deriva do guarda-redes      & $97.8\%$ ($1717/1755$) & $+1.7$ pp \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Os erros que subsistem, cerca de $2\%$ dos \emph{tracklets}, não decorrem da atribuição da equipa, mas de trocas de identidade introduzidas pelo \emph{tracker} numa fase anterior do \emph{pipeline}, em \emph{tracklets} muito curtos e instáveis. Não são, por isso, recuperáveis pelo módulo aqui apresentado.
+
+O desempenho nos três conjuntos é apresentado na Tabela~\ref{tab:team-conjuntos}. O conjunto de treino situa-se em $94.3\%$, mais próximo do teste do que da validação, o que é consistente com o que se observa no reconhecimento do número.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Exatidão da atribuição da equipa e do lado do campo nos três subconjuntos. A fração de
+    \emph{tracklets} não está disponível para o conjunto de validação.}
+    \label{tab:team-conjuntos}
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Conjunto} & \textbf{\emph{Baseline}} & \textbf{Proposto} \\
+        \hline
+        Teste ($39$ vídeos)     & $85.4\%$ ($1499/1755$) & $97.8\%$ ($1717/1755$) \\
+        Validação ($54$ vídeos) & ---                    & $82.4\%$ \\
+        Treino ($57$ vídeos)    & ---                    & $94.3\%$ ($2561/2716$) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+\subsection{Generalização}
+
+Os limiares de decisão foram inicialmente afinados apenas no conjunto de teste, o que os tornava demasiado específicos e penalizava o desempenho em dados não vistos. Uma recalibração conjunta sobre teste e validação, sob a mesma condição de não degradar nenhum vídeo já correto, elevou a exatidão em validação de $73.3\%$ para $82.4\%$, sem perda mensurável em teste. Isto confirma que os mecanismos introduzidos, em particular o agrupamento pela cor da camisola e a cascata de votação, generalizam para além dos vídeos de desenvolvimento, desde que os limiares não fiquem sobreajustados a um único conjunto.
+
+A diferença que ainda separa a validação do teste não está, porém, inteiramente esclarecida. A inspeção visual das sequências de validação revela erros que o módulo comete e que a recalibração não resolveu, em particular casos em que o tom do equipamento de uma das equipas se aproxima do usado pela equipa de arbitragem e os jogadores correspondentes deixam de ser agrupados corretamente. Estes casos concentram-se num bloco contíguo de vídeos e estão já contabilizados nos $82.4\%$ da Tabela~\ref{tab:team-conjuntos}, que os mede contra a anotação de referência. A sua caracterização sistemática, e a separação entre o que cabe ao módulo de atribuição e o que cabe às etapas anteriores do \emph{pipeline}, não foi concluída e retoma-se na Secção~\ref{sec:desempenho-global}.
+
+\subsection{Robustez do Critério de Atribuição do Lado}
+
+Como se referiu na Secção~\ref{sec:equipa-desafio}, a generalidade das soluções apresentadas ao desafio decide o lado do campo comparando a posição horizontal média dos dois grupos de jogadores, e nenhuma quantifica com que frequência essa suposição falha. Essa medição foi feita neste trabalho, diretamente sobre a anotação de referência dos $160$ vídeos, de modo a caracterizar o critério de forma independente dos erros do \emph{pipeline}.
+
+O procedimento assenta em dois testes. O primeiro usa o guarda-redes como referência, uma vez que, ao contrário dos jogadores de campo, não acompanha as fases de ataque, e verifica se a sua posição é compatível com o lado atribuído à sua equipa. O segundo compara a posição mediana dos jogadores de cada equipa e assinala os vídeos em que a ordem se inverte.
+
+Os resultados constam da Tabela~\ref{tab:lado-inversoes}. A posição do guarda-redes nunca contradiz a anotação, nos $155$ vídeos em que existe guarda-redes observável. Já o critério da posição média inverte-se em $9$ dos $160$ vídeos, ou seja em $5.6\%$ dos casos.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comportamento dos dois critérios de atribuição do lado do campo, medido sobre a
+    anotação de referência dos três subconjuntos.}
+    \label{tab:lado-inversoes}
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Critério} & \textbf{Vídeos avaliáveis} & \textbf{Casos em que falha} \\
+        \hline
+        Posição do guarda-redes  & $155$ & $0$ \\
+        Posição média da equipa  & $160$ & $9$ ($5.6\%$) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+A inversão ocorre em situações de pressão prolongada, em que a equipa atacante se instala no meio-campo adversário e a sua posição média passa a estar do lado que não lhe corresponde. É precisamente este cenário que motiva a cascata de critérios descrita na Secção~\ref{sec:mapeamento}, em vez de um critério único. Dos nove casos identificados, a cascata resolve corretamente aqueles em que a votação por \emph{tracklet} ou o desempate pelo guarda-redes dispõem de sinal suficiente.
+
+Ensaiou-se ainda um critério alternativo, o de substituir a posição média pelo jogador de campo mais recuado, partindo da ideia de que a última linha defensiva se mantém entre os atacantes e a sua própria baliza. Avaliado sobre a anotação de referência, ou seja, no cenário mais favorável possível, este critério acerta em apenas $68.6\%$ dos vídeos, contra $94.4\%$ da posição média, e falha nos nove casos difíceis. A causa é o enquadramento televisivo, uma vez que a câmara mostra apenas parte do campo e o jogador mais recuado visível não é necessariamente o último defesa. A alternativa foi, por isso, descartada.
+
+\section{Desempenho Global}\label{sec:desempenho-global}
+
+O efeito das duas alterações no sistema completo é medido pelo GS-HOTA, a métrica oficial do desafio, que articula a precisão da localização no campo com a correção conjunta de todos os atributos de identidade de cada interveniente.
+
+Antes dos valores, convém clarificar dois aspetos da medição. Primeiro, por limitações de memória, o GS-HOTA não foi calculado numa única avaliação sobre a totalidade de cada conjunto, mas como a média das avaliações por lote. Como a métrica não é aditiva entre subconjuntos, os valores reportados são aproximações do resultado global. Segundo, o conjunto de teste, de anotações públicas, é distinto do conjunto de \emph{challenge}, de anotações reservadas, sobre o qual é apurada a classificação oficial do desafio. Os resultados do sistema proposto referem-se aos conjuntos de anotações públicas, ao passo que as classificações oficiais de 2024 e 2025 se referem ao conjunto de \emph{challenge}, pelo que as duas medições não são diretamente comparáveis.
+
+No conjunto de teste, o sistema proposto atinge $44.26\%$, contra os $22.26\%$ da solução de referência oficial no mesmo conjunto (Tabela~\ref{tab:gshota}). Trata-se de uma melhoria de $22$ pontos percentuais, praticamente o dobro do desempenho de partida, obtida intervindo apenas em dois dos seis módulos do \emph{pipeline}. A deteção, o \emph{tracking} e a calibração mantêm-se inalterados.
+
+\begin{table}[htbp]
+    \centering
+    \caption{GS-HOTA nos três subconjuntos anotados. A solução de referência é a \emph{baseline}
+    oficial avaliada no conjunto de teste. Os valores do sistema proposto são aproximações
+    calculadas localmente, como média das avaliações por lote.}
+    \label{tab:gshota}
+    \begin{tabular}{lcc}
+        \hline
+        \textbf{Sistema} & \textbf{Vídeos} & \textbf{GS-HOTA} \\
+        \hline
+        Solução de referência oficial (\emph{baseline}), teste & $49$ & $22.26\%$ \\
+        \hline
+        Sistema proposto, teste     & $49$ & $44.26\%$ \\
+        Sistema proposto, treino    & $57$ & $42.57\%$ \\
+        Sistema proposto, validação & $54$ & $31.95\%$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+O conjunto de treino oferece a verificação mais exigente deste resultado. Por não ter sido observado durante o desenvolvimento, nem ter contribuído para a afinação de qualquer limiar, funciona como conjunto de retenção. O valor aí obtido, $42.57\%$ sobre $57$ vídeos, fica a $1.7$ pontos do conjunto de teste, uma diferença pequena face à dispersão entre lotes, que vai de $29.5\%$ a $55.2\%$. Não há, portanto, indício de que o desempenho no conjunto de teste resulte de sobreajuste, o que constitui a objeção mais previsível a um trabalho que afina limiares sobre parte dos dados de avaliação. Uma ressalva de método deve, ainda assim, acompanhar esta comparação, pois o conjunto de treino foi processado após uma atualização do ambiente de execução, e embora o código dos módulos seja o mesmo e as versões das bibliotecas tenham sido fixadas, não se pode excluir que parte da diferença observada tenha origem nessa mudança.
+
+Para enquadrar estes valores no panorama competitivo, a Tabela~\ref{tab:leaderboard} reúne os três melhores sistemas e a \emph{baseline} de cada edição, apurados no conjunto de \emph{challenge}. Os sistemas no topo ultrapassam os $60\%$, otimizando a totalidade do \emph{pipeline}, incluindo a deteção e a calibração. A diferença de conjuntos impede uma comparação direta, mas serve de referência aproximada. Face à edição de 2024, o valor do sistema proposto situar-se-ia em segundo lugar, acima dos $43.15\%$ do segundo classificado, enquanto na edição de 2025, bastante mais competitiva, corresponderia a uma posição intermédia. Trata-se, em qualquer caso, de um resultado assinalável para uma intervenção limitada a dois módulos.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Três melhores sistemas e \emph{baseline} oficial das edições de 2024 e 2025 do desafio,
+    apurados no conjunto de \emph{challenge}, distinto dos conjuntos usados neste trabalho.
+    Valores da avaliação oficial.}
+    \label{tab:leaderboard}
+    \begin{tabular}{lc}
+        \hline
+        \textbf{Sistema} & \textbf{GS-HOTA} \\
+        \hline
+        \multicolumn{2}{l}{\emph{Edição de 2024}} \\
+        Constructor Tech           & $63.81\%$ \\
+        UPCxMobius                 & $43.15\%$ \\
+        JAM                        & $34.40\%$ \\
+        \emph{Baseline} oficial    & $23.36\%$ \\
+        \hline
+        \multicolumn{2}{l}{\emph{Edição de 2025}} \\
+        KIST-GSR                   & $63.90\%$ \\
+        Constructor Tech           & $63.81\%$ \\
+        lianyou                    & $62.76\%$ \\
+        \emph{Baseline} oficial    & $29.01\%$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+A leitura das abordagens vencedoras reforça esta interpretação. As soluções no topo das duas edições investiram sobretudo nas etapas que este trabalho manteve intactas. O sistema vencedor de 2024 reconstruiu a deteção e a calibração e introduziu uma fase de pós-processamento dedicada à correção de \emph{tracklets} fragmentados, apontada como o seu maior contributo individual. As restantes soluções cimeiras seguiram o mesmo caminho, com detetores e modelos de calibração treinados de raiz sobre dados próprios. O salto para valores acima dos $60\%$ decorre, assim, em larga medida da otimização das componentes anteriores do \emph{pipeline}, precisamente onde este trabalho identifica a margem que resta.
+
+Esta leitura é sustentada de forma independente pela decomposição da métrica oficial por atributo apresentada na Secção~\ref{sec:jnr-desafio}, em que a inclusão do número de camisola provoca a maior queda isolada, identificando-o como o principal estrangulamento do sistema.
+
+É igualmente significativo que as escolhas de conceção deste trabalho coincidam com o estado da arte mais recente. O sistema vencedor de 2025 formula a identificação como uma tarefa multimodal resolvida por um modelo de visão-linguagem, o mesmo tipo de modelo aqui adotado para a leitura do número, e determina a equipa por agrupamento da cor do equipamento combinado com a posição no campo, à semelhança da estratégia seguida no módulo de atribuição. Estas coincidências, alcançadas de forma independente, confirmam que a direção seguida está alinhada com as soluções mais competitivas, ainda que sem a otimização das restantes etapas do \emph{pipeline}. Ainda assim, o módulo aqui desenvolvido acrescenta um passo de recorte da região dorsal guiado pela pose antes da leitura, que não consta das descrições publicadas dessas soluções e procura entregar ao modelo apenas a zona onde o número se encontra.
+
+\subsection{O Comportamento no Conjunto de Validação}
+
+No conjunto de validação, o GS-HOTA médio desce para $31.95\%$. A leitura desta descida exige uma cautela que a própria métrica impõe e que merece ser explicitada, por condicionar as conclusões que dela se podem extrair.
+
+No GS-HOTA, a similaridade entre uma deteção e a anotação de referência é anulada sempre que a função, a equipa ou o número de camisola não coincidem. As componentes de deteção e de associação da métrica, incluindo o DetA, não medem por isso a deteção isoladamente, mas a deteção corretamente atribuída. Um valor de DetA muito baixo é, em consequência, compatível com duas causas distintas, um detetor que não encontra os jogadores e um erro sistemático de atributo sobre deteções que estão corretas.
+
+Os dados disponíveis mostram uma divisão nítida do conjunto. Em cerca de vinte dos cinquenta e quatro vídeos de validação, todos pertencentes a um bloco contíguo, o DetA situa-se entre $1.5\%$ e $7\%$ e o GS-HOTA desce para perto de $11\%$. Os restantes mantêm um GS-HOTA médio próximo de $40\%$, em linha com o conjunto de teste. A inspeção visual dessas mesmas sequências revela, porém, erros sistemáticos de atributo, com jogadores cujo equipamento se aproxima em tom do da equipa de arbitragem, o que constitui exatamente a segunda causa descrita acima.
+
+Não é possível, com as medições realizadas, quantificar que parte da descida cabe a cada uma das causas, uma vez que ambas produzem o mesmo efeito sobre a métrica. A separação exigiria reavaliar o mesmo conjunto com os atributos desativados na configuração do avaliador, o que isolaria a componente puramente geométrica da deteção e permitiria atribuir a diferença. Essa experiência não foi conduzida e identifica-se como trabalho futuro no Capítulo~\ref{cap:conclusao}. O que se pode afirmar com segurança é que os valores reportados não estão inflacionados por estes erros, pois a métrica oficial penaliza-os integralmente, e que o conjunto de validação é, dos três, aquele em que o sistema tem maior margem por explorar.
+
+\section{Síntese}
+
+Os resultados mostram que uma intervenção concentrada em apenas dois dos seis módulos foi suficiente para melhorar de forma clara e consistente o desempenho global. O reconhecimento do número mais do que duplicou face à \emph{baseline}, a atribuição da equipa passou a acertar em quase todos os \emph{tracklets} do conjunto de teste, e o GS-HOTA nesse conjunto praticamente duplicou, subindo de $22.26\%$ para $44.26\%$. Todos estes ganhos foram obtidos sem tocar na deteção, no \emph{tracking} ou na calibração, que se mantiveram exatamente como na solução de referência.
+
+A avaliação sobre os $160$ vídeos dos três subconjuntos acrescenta uma garantia importante. O conjunto de treino, que não interveio em nenhuma decisão de conceção, produz valores próximos dos do teste, tanto no reconhecimento do número, com $35.2\%$ contra $39.5\%$, como na métrica global, com $42.57\%$ contra $44.26\%$. O desempenho reportado não resulta, portanto, de sobreajuste ao conjunto sobre o qual os limiares foram afinados.
+
+Os limites desta abordagem ficaram igualmente delimitados. As experiências controladas sobre o reconhecimento do número mostram que, nos casos falhados, a informação não está presente na imagem entregue ao modelo, conclusão que coincide com a decomposição por atributo publicada pela solução vencedora de 2025. Para este módulo, a margem que resta encontra-se nas etapas anteriores do \emph{pipeline}, que determinam a qualidade dos recortes disponíveis. Já no módulo de atribuição da equipa, o conjunto de validação mostra que subsistem erros por caracterizar, e é aí que se concentra o trabalho imediato.

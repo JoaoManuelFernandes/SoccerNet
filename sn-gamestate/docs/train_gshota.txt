@@ -1,0 +1,87 @@
+[2026-09-07 19:18:21] INICIO: 57 videos de treino, 19 lotes, com GS-HOTA
+[2026-09-07 19:18:21] lote 01 inicio | SNGS-060 SNGS-061 SNGS-062
+lote 01 | SNGS-060,SNGS-061,SNGS-062 | GS-HOTA = FALHOU
+  metricas -> docs/train_reports/train-b01.md
+[2026-09-07 20:29:40] lote 02 inicio | SNGS-063 SNGS-064 SNGS-065
+lote 02 | SNGS-063,SNGS-064,SNGS-065 | GS-HOTA = FALHOU
+  metricas -> docs/train_reports/train-b02.md
+[2026-09-07 21:40:14] lote 03 inicio | SNGS-066 SNGS-067 SNGS-068
+[2026-09-07 21:40:24] PARAGEM PROGRAMADA (lote 02 concluido). Retomar amanha a partir do lote seguinte.
+/dev/nvme0n1p7          183G  150G   25G  87% /
+[2026-09-08 07:44:01] RETOMA: 57 videos de treino, 19 lotes, com GS-HOTA
+[2026-09-08 07:44:01] lote 03 inicio | SNGS-066 SNGS-067 SNGS-068
+lote 03 | SNGS-066,SNGS-067,SNGS-068 | GS-HOTA = 39.959
+  metricas -> docs/train_reports/train-b03.md
+[2026-09-08 08:53:51] lote 04 inicio | SNGS-069 SNGS-070 SNGS-071
+lote 04 | SNGS-069,SNGS-070,SNGS-071 | GS-HOTA = 40.473
+  metricas -> docs/train_reports/train-b04.md
+[2026-09-08 10:07:21] lote 05 inicio | SNGS-072 SNGS-073 SNGS-074
+lote 05 | SNGS-072,SNGS-073,SNGS-074 | GS-HOTA = 45.323
+  metricas -> docs/train_reports/train-b05.md
+[2026-09-08 11:23:08] lote 06 inicio | SNGS-075 SNGS-076 SNGS-077
+lote 06 | SNGS-075,SNGS-076,SNGS-077 | GS-HOTA = 52.189
+  metricas -> docs/train_reports/train-b06.md
+[2026-09-08 12:45:22] lote 07 inicio | SNGS-097 SNGS-098 SNGS-099
+lote 07 | SNGS-097,SNGS-098,SNGS-099 | GS-HOTA = 55.237
+  metricas -> docs/train_reports/train-b07.md
+[2026-09-08 13:45:40] lote 08 inicio | SNGS-100 SNGS-101 SNGS-102
+lote 08 | SNGS-100,SNGS-101,SNGS-102 | GS-HOTA = 40.205
+  metricas -> docs/train_reports/train-b08.md
+[2026-09-08 14:45:35] lote 09 inicio | SNGS-103 SNGS-104 SNGS-105
+lote 09 | SNGS-103,SNGS-104,SNGS-105 | GS-HOTA = 45.277
+  metricas -> docs/train_reports/train-b09.md
+[2026-09-08 15:58:11] lote 10 inicio | SNGS-106 SNGS-107 SNGS-108
+lote 10 | SNGS-106,SNGS-107,SNGS-108 | GS-HOTA = 33.007
+  metricas -> docs/train_reports/train-b10.md
+[2026-09-08 16:57:27] lote 11 inicio | SNGS-109 SNGS-110 SNGS-111
+lote 11 | SNGS-109,SNGS-110,SNGS-111 | GS-HOTA = 29.488
+  metricas -> docs/train_reports/train-b11.md
+[2026-09-08 17:59:42] lote 12 inicio | SNGS-112 SNGS-113 SNGS-114
+lote 12 | SNGS-112,SNGS-113,SNGS-114 | GS-HOTA = 35.112
+  metricas -> docs/train_reports/train-b12.md
+[2026-09-08 19:10:38] lote 13 inicio | SNGS-115 SNGS-151 SNGS-152
+lote 13 | SNGS-115,SNGS-151,SNGS-152 | GS-HOTA = 40.665
+  metricas -> docs/train_reports/train-b13.md
+[2026-09-08 20:20:56] lote 14 inicio | SNGS-153 SNGS-154 SNGS-155
+lote 14 | SNGS-153,SNGS-154,SNGS-155 | GS-HOTA = 44.558
+  metricas -> docs/train_reports/train-b14.md
+[2026-09-08 21:26:29] lote 15 inicio | SNGS-156 SNGS-157 SNGS-158
+[2026-09-08 21:26:58] PARAGEM AS 22H (14 lotes feitos; nao ha tempo para outro antes das 22h).
+| Lote | Vídeos | GS-HOTA | Número | Equipa |
+|---|---|---|---|---|
+| 01 | 060, 061, 062 | 46.484% | 35.5% | 100.0% |
+| 02 | 063, 064, 065 | 35.255% | 29.5% | 97.8% |
+| 03 | 066, 067, 068 | 39.959% | 23.7% | 98.7% |
+| 04 | 069, 070, 071 | 40.473% | 45.5% | 88.1% |
+| 05 | 072, 073, 074 | 45.323% | 33.9% | 99.2% |
+| 06 | 075, 076, 077 | 52.189% | 37.5% | 98.2% |
+| 07 | 097, 098, 099 | 55.237% | 51.0% | 100.0% |
+| 08 | 100, 101, 102 | 40.205% | 31.9% | 100.0% |
+| 09 | 103, 104, 105 | 45.277% | 37.7% | 100.0% |
+| 10 | 106, 107, 108 | 33.007% | 24.2% | 70.4% |
+| 11 | 109, 110, 111 | 29.488% | 29.6% | 73.1% |
+| 12 | 112, 113, 114 | 35.112% | 38.4% | 63.5% |
+| 13 | 115, 151, 152 | 40.665% | 36.3% | 100.0% |
+| 14 | 153, 154, 155 | 44.558% | 41.9% | 100.0% |
+
+Lotes concluídos: 14  (42 vídeos de 57)
+GS-HOTA médio por lote : 41.66%   (min 29.49 / max 55.24)
+Número  acumulado      : 563/1598 = 35.2%
+Equipa  acumulada      : 1776/1931 = 92.0%
+[2026-09-09 07:55:02] RETOMA: 57 videos de treino, 19 lotes, com GS-HOTA
+[2026-09-09 07:55:02] lote 15 inicio | SNGS-156 SNGS-157 SNGS-158
+lote 15 | SNGS-156,SNGS-157,SNGS-158 | GS-HOTA = 41.042
+  metricas -> docs/train_reports/train-b15.md
+[2026-09-09 08:57:44] lote 16 inicio | SNGS-159 SNGS-160 SNGS-161
+lote 16 | SNGS-159,SNGS-160,SNGS-161 | GS-HOTA = 47.357
+  metricas -> docs/train_reports/train-b16.md
+[2026-09-09 10:01:28] lote 17 inicio | SNGS-162 SNGS-163 SNGS-164
+lote 17 | SNGS-162,SNGS-163,SNGS-164 | GS-HOTA = 42.842
+  metricas -> docs/train_reports/train-b17.md
+[2026-09-09 11:16:44] lote 18 inicio | SNGS-165 SNGS-166 SNGS-167
+lote 18 | SNGS-165,SNGS-166,SNGS-167 | GS-HOTA = 47.022
+  metricas -> docs/train_reports/train-b18.md
+[2026-09-09 12:34:05] lote 19 inicio | SNGS-168 SNGS-169 SNGS-170
+lote 19 | SNGS-168,SNGS-169,SNGS-170 | GS-HOTA = 47.376
+  metricas -> docs/train_reports/train-b19.md
+[2026-09-09 13:42:53] TODOS OS LOTES CONCLUIDOS

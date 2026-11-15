@@ -1,0 +1,74 @@
+\documentclass[10pt, twoside, a4paper]{report}
+
+% Add used configurations
+\input{Configurations/Configurations}
+
+\begin{document}
+% #####################  COVER  ###########################
+\pagenumbering{gobble} 								% Disable Page Numbering
+
+\input{FrontCover/FrontCover} \cleardoublepage
+
+\input{FrontCover/FrontCoverInner} \cleardoublepage
+
+\setcounter{secnumdepth}{-1}						% Disable section numbering in table of contents
+
+\onehalfspacing										% Sets the line spacing in the document to 1.5
+
+%\includepdf[page={1}]{FrontCover/Declaration.pdf} \cleardoublepage
+ \input{FrontCover/Declaration} \cleardoublepage	% Edit the date, sign, create a PDF and replace it by the one on the previous line. Uncomment the previous line and comment this one
+
+% #####################   Introductory Information     ###########################
+
+{
+\pagenumbering{Roman}
+
+\input{FrontCover/AbstractInPortuguese} \cleardoublepage
+\input{FrontCover/AbstractInEnglish} \cleardoublepage
+\input{FrontCover/ListOfabbreviationsOrAcronyms} \cleardoublepage
+
+\setcounter{tocdepth}{5}
+\input{FrontCover/Index} \cleardoublepage
+
+\listoffigures 
+\listoftables
+\cleardoublepage
+
+}
+
+% ###############################################################
+\pagenumbering{arabic}  											% Enable Regular Page Numbering
+\restoregeometry
+
+% ALTERADO: a numeracao passa a estar activa JA NA INTRODUCAO, para que esta
+% seja o Capitulo 1. Antes, esta linha so aparecia depois da introducao.
+\setcounter{secnumdepth}{5}											% Enable section numbering up to SubSubSection (level 5)
+
+\input{Chapters/Introdução} \cleardoublepage
+
+% #################### Start of the Chapters ######################
+
+\input{Chapters/Chapter_01} \cleardoublepage
+
+\input{Chapters/Chapter_02} \cleardoublepage
+\input{Chapters/Chapter3} \cleardoublepage
+
+
+% #################### End Chapter and Bibliography ######################
+% ALTERADO: removido o \setcounter{secnumdepth}{-1} que aqui estava, para que
+% a conclusao seja o Capitulo 5 e apareca numerada.
+\input{Chapters/Conclusions} \cleardoublepage
+
+% ALTERADO: a numeracao so e desligada DEPOIS da conclusao, para que a
+% bibliografia e os anexos continuem sem numero, como estavam.
+\setcounter{secnumdepth}{-1}
+\input{Chapters/Bibliography} \cleardoublepage
+
+% #################### Attachments ######################
+{
+\pagenumbering{gobble} 												% Disable Page Numbering
+\setcounter{secnumdepth}{-1}
+% For attachments, check the formatting rules
+\input{Chapters/Attachments} \cleardoublepage	
+}
+\end{document}

@@ -42,7 +42,7 @@ class TVCalib_Segmentation(ImageLevelModule):
             md5 = "c89ab863a12822b0e3a87cd6eebe7cae"
             download_file("https://tib.eu/cloud/s/x68XnTcZmsY4Jpg/download/train_59.pt",
                           checkpoint, md5)
-        self.model.load_state_dict(torch.load(checkpoint)["model"], strict=False)
+        self.model.load_state_dict(torch.load(checkpoint, weights_only=False)["model"], strict=False)
         self.model.to(self.device)
         self.model.eval()
         self.image_width = image_width

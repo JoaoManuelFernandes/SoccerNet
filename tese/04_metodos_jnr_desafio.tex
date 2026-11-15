@@ -1,0 +1,116 @@
+% ===========================================================================
+% NOVA SUBSECÇÃO 2.2.3, a colocar a seguir a "ABORDAGENS TEMPORAIS E POR
+% KEYFRAMES" e antes da secção "ATRIBUIÇÃO DE EQUIPA".
+% ===========================================================================
+
+\subsection{MÉTODOS APRESENTADOS AO DESAFIO SOCCERNET}
+\label{sec:jnr_desafio}
+
+As duas linhas anteriores descrevem a investigação publicada em conferências e revistas.
+Existe, porém, um segundo corpo de trabalho que raramente chega a esses canais e que é
+particularmente informativo para esta dissertação, o das soluções apresentadas às sucessivas
+edições do desafio SoccerNet. Interessam aqui não pelas classificações que obtiveram, mas
+pelas opções técnicas que revelam, e sobretudo pela mudança de paradigma que documentam ao
+longo de três anos.
+
+\subsubsection*{A família OCR em três fases}
+
+A tarefa foi disputada isoladamente na edição de 2023, sobre um conjunto de \emph{tracklets}
+já recortados, com 15 equipas e 157 submissões. Importa esclarecer que esses \emph{tracklets}
+provêm do conjunto SoccerNet-Tracking e que a tarefa estava formulada como classificação, com
+uma classe adicional para o número não visível, pelo que os valores dessa edição não são
+comparáveis com os aqui reportados. O que dela se retira é o método.
+
+Segundo os organizadores, a generalidade das equipas adotou um mesmo procedimento em três
+fases. Primeiro uma deteção de texto sobre o recorte do jogador, para localizar o número na
+imagem, com recurso a modelos como o DBNet++, o MMOCR, o DeepSolo ou o YOLO. Depois um
+reconhecimento do texto localizado, por motores de OCR afinados para o efeito, tipicamente o
+PP-OCRv3 ou o PaddleOCR. E por fim uma votação maioritária que consolida as leituras de todas
+as imagens de um mesmo \emph{tracklet} numa decisão única. A solução vencedora seguiu esta
+estrutura e concentrou o esforço nos dados, usando o DBNet++ para descartar do treino as
+imagens sem número detetável, aplicando aumentação intensiva que incluía a fusão de várias
+\emph{frames} numa só imagem, e combinando por votação cinco modelos de reconhecimento
+distintos.
+
+Duas observações se impõem. A primeira é que a agregação temporal por votação ao nível do
+\emph{tracklet}, que também se adota neste trabalho, já era prática corrente da comunidade em
+2023, e não constitui portanto uma novidade. A segunda é que toda esta família assenta em
+tratar o número como texto arbitrário, exatamente a limitação que a Secção~\ref{sec:met_jnr}
+procura ultrapassar.
+
+\subsubsection*{Classificadores dedicados ao número}
+
+Na primeira edição da reconstrução do estado de jogo, em 2024, as equipas melhor classificadas
+abandonaram o OCR genérico e passaram a treinar modelos próprios, especializados no número de
+camisola. Golovkin et al. (2025) organizam este panorama em duas categorias, a saber, as
+adaptações de técnicas de OCR de uso geral, que localizam e depois leem o texto, e as soluções
+desenhadas para o domínio desportivo. Sobre as primeiras notam que a exatidão se degrada com
+jogadores distantes, com oclusões e com orientações laterais, e sobre as segundas que ganham
+exatidão à custa de exigirem treino específico para cada conjunto de dados.
+
+A própria solução vencedora ilustra bem a segunda categoria. Prescinde de detetar cada dígito
+com uma caixa delimitadora e usa em seu lugar uma rede residual modificada, que recebe recortes
+de 32 por 32 píxeis e possui duas cabeças de classificação, uma que decide se existe um dígito
+inicial e qual, e outra que prevê o segundo dígito. A estrutura permite reconhecer o número
+mesmo quando parte dele está ocluída, e dispensa a anotação de caixas por dígito. O
+desequilíbrio entre números frequentes e raros é tratado com uma função de perda combinada.
+
+A equipa classificada em segundo lugar seguiu caminho semelhante, treinando um detetor dedicado
+de dígitos sobre dados públicos e cerca de mil imagens anotadas de propósito, e reconstruindo o
+número a partir dos dígitos reconhecidos. Uma terceira equipa recorreu ao CLIP em duas fases,
+com um modelo a decidir se há número visível e outro a identificá-lo, afinados sobre três mil
+caixas anotadas manualmente.
+
+O traço comum a todas é o custo de anotação. Cada uma destas soluções exigiu a construção de um
+conjunto de treino próprio, o que representa um esforço incompatível com as condições em que
+esta dissertação foi realizada.
+
+\subsubsection*{A viragem para os modelos multimodais}
+
+A edição de 2025 marca uma mudança clara. Os organizadores registam a aplicação bem-sucedida de
+modelos de visão e linguagem à leitura do número, e as duas soluções mais relevantes nesse
+sentido recorreram ao LLaMA-3.2-Vision e ao Qwen2-VL-Instruct.
+
+A solução vencedora, descrita em detalhe por Oo et al. (2026), formula a identificação completa
+do atleta como uma tarefa de geração autorregressiva multimodal. Em vez de treinar um
+classificador por atributo, entrega ao modelo o recorte do jogador acompanhado de uma instrução
+em linguagem natural que lhe pede a função, o número e a cor do equipamento, e lê a resposta
+como uma sequência de símbolos. Os autores justificam a escolha por três razões, a saber, a
+generalização a atributos nunca vistos, o que torna o reconhecimento aberto, a redução do
+esforço de anotação, uma vez que basta ajustar a instrução, e a possibilidade de transpor a
+solução para outros desportos.
+
+Este mesmo trabalho fornece a comparação mais direta de que há registo entre as três estratégias,
+por as avaliar dentro de um único \emph{pipeline} e sobre o mesmo conjunto de teste. A
+combinação de modelos especializados por atributo, com o PRTreID para a função, o EasyOCR para o
+número e uma rede residual para a cor, obtém 18.11\% de GS-HOTA. A substituição por um modelo de
+visão e linguagem eleva o valor para 60.13\% com o CLIP e para 61.48\% com o LLaMA-3.2-Vision.
+Ainda que estes valores digam respeito ao sistema completo, e não isoladamente à leitura do
+número, a distância entre a primeira linha e as restantes é demasiado grande para ser atribuída
+a outra coisa.
+
+Uma segunda equipa aplicou o Qwen2-VL-Instruct de forma distinta, apresentando ao modelo uma
+sequência longa de deteções dispostas em grelha e permitindo-lhe invocar uma função de ampliação
+para inspecionar intervalos concretos antes de decidir. Em sentido contrário, uma das equipas
+melhor classificadas manteve-se no reconhecimento de texto convencional, isolando primeiro a
+região do tronco a partir dos pontos de interesse do ViTPose e aplicando depois o PARSeq, o que
+mostra que a via clássica continua viável quando a região entregue ao leitor é a correta.
+
+\subsubsection*{O número de camisola como estrangulamento reconhecido}
+
+Vários participantes convergem no mesmo diagnóstico. A equipa da Universidade de Tóquio encerra
+o seu relato reconhecendo que, tal como na solução de referência, a maior dificuldade permaneceu
+no reconhecimento do número, e aponta os modelos multimodais como o caminho a seguir. Outra
+equipa chega à mesma conclusão por via experimental, ao verificar que a calibração e a leitura do
+número eram as etapas com maior margem no seu sistema.
+
+A demonstração mais completa é, contudo, a de Oo et al. (2026), que decompõem a métrica oficial
+por atributo dentro do seu próprio sistema. Avaliando apenas a posição no campo obtêm 79.52\%.
+Acrescentando a função, o valor desce marginalmente para 79.20\%. Acrescentando em vez disso a
+equipa, desce para 73.58\%. Acrescentando o número de camisola, cai para 64.70\%. Os autores
+concluem que a leitura do número é o principal estrangulamento do sistema, e explicam-no pela
+natureza da transmissão televisiva, onde os dígitos surgem desfocados, ocluídos ou visíveis em
+poucas \emph{frames} de cada \emph{tracklet}.
+
+Trata-se de confirmação externa e quantificada da premissa em que assenta esta dissertação, e que
+motiva a escolha dos dois módulos a intervencionar.

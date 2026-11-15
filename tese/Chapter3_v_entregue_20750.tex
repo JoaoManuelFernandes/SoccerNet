@@ -1,0 +1,427 @@
+\chapter{Metodologia}\label{cap:metodologia}
+
+Este capítulo detalha as modificações desenvolvidas nos módulos de identificação do
+\emph{pipeline} do desafio SoccerNet-GSR, mais especificamente no reconhecimento dos
+números das camisolas e na atribuição da equipa e do lado do campo. Começa-se por enquadrar
+estas intervenções na arquitetura geral da \emph{baseline}, deixando claro o que foi alterado
+e o que se manteve intacto. Em seguida, apresentam-se individualmente o novo módulo de leitura
+visual e as correções aplicadas à classificação de equipas. Por fim, descrevem-se o ambiente
+experimental e o protocolo de avaliação sobre os quais assentam os resultados do capítulo
+seguinte.
+
+
+\section{Visão Geral do Sistema}
+
+A arquitetura da \emph{baseline} está ilustrada na Figura~\ref{fig:gsr-pipeline}. Dos módulos
+que a compõem, este trabalho intervém unicamente na etapa final de identificação, aquela que
+atribui a cada \emph{tracklet} a equipa, a função e o número de camisola.
+
+As alterações concentram-se em dois dos seus componentes. No primeiro, a leitura do número de
+camisola, o módulo de OCR da \emph{baseline} deu lugar a um modelo multimodal de visão e
+linguagem. No segundo, a atribuição de equipa e do lado do campo, corrigiram-se erros de
+agrupamento e de mapeamento e recalibraram-se os limiares de decisão. Todos os restantes
+módulos, a deteção, a reidentificação, o \emph{tracking} e a calibração, permaneceram intocados.
+
+A escolha destes dois componentes não é arbitrária. São os que menos atenção têm recebido na
+literatura, como evidencia a revisão do estado da arte, e aqueles em que a solução de referência
+revela maior margem de melhoria, de forma particularmente acentuada no reconhecimento do número de
+camisola. Isto torna-os o ponto de intervenção com maior retorno esperado.
+
+Concentrar o esforço apenas nestes dois módulos, em vez de o dispersar por todo o \emph{pipeline},
+permitiu ainda estudá-los com uma profundidade que uma intervenção mais alargada dificilmente
+comportaria, em linha com o âmbito de uma dissertação de mestrado. Isolá-los, mantendo tudo o resto
+inalterado, garante que qualquer variação no desempenho final resulte diretamente das melhorias
+introduzidas, e não de uma reotimização global. Por serem independentes entre si, as duas
+alterações integram-se no \emph{pipeline} sem exigir o reentreino das etapas anteriores, mantendo a
+compatibilidade direta com a \emph{baseline} pública disponibilizada por \citet{somers2024soccernet}.
+
+\section{Reconhecimento de Número de Camisola}\label{sec:met-jnr}
+
+Na solução de referência, o reconhecimento dos números das camisolas baseia-se na biblioteca
+MMOCR, que aplica um \emph{pipeline} genérico de deteção e reconhecimento de texto sobre o recorte de
+cada jogador. Por atuar estritamente ao nível do carácter e sem incorporar conhecimento
+\emph{a priori} sobre o domínio, esta abordagem trata o número como texto arbitrário e ignora
+duas propriedades fundamentais do cenário desportivo.
+
+A primeira é de cariz espacial. O número encontra-se numa região anatomicamente delimitada, a
+zona dorsal do tronco, cuja localização pode ser estimada com precisão por um modelo de pose, em
+vez de ser procurada de forma exaustiva em toda a imagem. A segunda é de cariz temporal. O mesmo
+jogador é observado ao longo de múltiplos \emph{frames} consecutivos, e esta redundância,
+frequentemente desaproveitada pelos métodos de inferência por \emph{frame} isolado, revela-se
+crítica em situações de baixa resolução, oclusão parcial ou poses desfavoráveis.
+
+Para tirar partido destas especificidades, o módulo proposto reorganiza a leitura numa sequência
+de três fases interdependentes (Figura~\ref{fig:jnr-flow}). Inicialmente, um modelo de estimativa
+de pose (YOLO26m-pose) extrai os pontos de interesse (\emph{keypoints}) do tronco e isola a
+região dorsal, eliminando o fundo e as áreas irrelevantes do recorte. Em seguida, essa região é
+processada por um modelo multimodal de visão e linguagem (\emph{Vision-Language Model}, VLM), o
+Qwen2.5-VL, capaz de inferir conjuntamente sobre a informação visual e o contexto semântico do
+equipamento e de distinguir o número de outros elementos gráficos ou patrocínios. Por fim, as
+predições individuais associadas a cada \emph{tracklet} são consolidadas por um mecanismo de
+votação temporal, convertendo uma sequência de inferências instantâneas numa decisão final mais
+robusta e consistente.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{jnr_flow.png}
+    \caption{Fluxo do módulo de reconhecimento do número de camisola. A estimativa de pose
+    delimita a região dorsal, cujo recorte é interpretado pelo modelo multimodal Qwen2.5-VL
+    quantizado a 4 bits. As leituras sucessivas de cada \emph{tracklet} são consolidadas por
+    votação temporal numa decisão final única.}
+    \label{fig:jnr-flow}
+\end{figure}
+
+\subsection{Recorte da Região Dorsal por Estimativa de Pose}
+
+Para concentrar a leitura na zona onde o número efetivamente aparece, cada deteção é primeiro
+processada por um modelo de estimativa de pose, o YOLO26m-pose. A partir dos \emph{keypoints} do
+tronco, define-se uma região de interesse sobre as costas do jogador, alargada lateralmente para
+acomodar variações de postura e enquadramento. Este recorte elimina o fundo, os membros e a zona
+frontal, entregando ao modelo de leitura apenas o conteúdo relevante.
+
+Antes de prosseguir, cada recorte passa por um filtro de qualidade que descarta os casos sem
+informação utilizável. São rejeitados os recortes com dimensões inferiores a um limiar mínimo,
+tipicamente jogadores muito distantes da câmara, e os recortes desfocados, quantificados pela
+variância do Laplaciano. Este passo é determinante, uma vez que uma imagem sem resolução
+suficiente não contém o número a ler e a sua submissão ao modelo apenas introduziria ruído. Ao
+filtrar à entrada, garante-se que o modelo de leitura recebe somente recortes com hipótese real
+de sucesso.
+
+\subsection{Leitura por Modelo Multimodal de Visão e Linguagem}
+
+O núcleo deste módulo assenta no modelo multimodal Qwen2.5-VL-3B-Instruct, responsável por
+inferir e reportar o número a partir dos recortes da região dorsal de cada jogador. A opção por
+uma arquitetura de visão e linguagem (\emph{Vision-Language Model}, VLM), em detrimento de um
+motor de OCR dedicado, fundamenta-se na sua capacidade de interpretação contextual, que lhe
+permite distinguir a numeração oficial de outros elementos gráficos presentes no equipamento,
+como patrocínios, logótipos de marcas ou textos avulsos, que de outro modo introduziriam ruído.
+
+A principal limitação prática derivou da infraestrutura computacional disponível, uma GPU móvel
+equipada com apenas 6~GB de VRAM. Para viabilizar a execução dentro deste limite de memória, o
+modelo foi carregado com quantização a 4 bits (\emph{4-bit quantization}), o que reduz a sua
+ocupação de VRAM para aproximadamente 2~GB e assegura a sua coexistência com os restantes
+módulos do \emph{pipeline}. Adicionalmente, para prevenir exceções de memória (\emph{out-of-memory})
+durante as fases subsequentes de calibração, a instância do modelo é explicitamente libertada da
+VRAM no término do processamento de cada vídeo.
+
+A inferência do modelo foi moldada por engenharia de \emph{prompt}, assente em duas diretrizes
+fundamentais:
+
+\begin{enumerate}
+    \item \textbf{Integridade estrutural da numeração.} O modelo é instruído a extrair a
+    totalidade dos dígitos, prevenindo a omissão de um dígito inicial parcialmente ocluído, uma
+    falha recorrente que tende a truncar números compostos, por exemplo classificando um 14 como
+    4.
+    \item \textbf{Política conservadora de recusa.} O modelo deve emitir uma resposta nula
+    sempre que a amostra apresente baixa resolução, desfocagem acentuada ou ambiguidade visual,
+    em vez de arriscar uma leitura incerta.
+\end{enumerate}
+
+Esta estratégia conservadora reflete uma decisão de projeto importante. No contexto da
+reconstrução do estado de jogo e da métrica oficial do SoccerNet-GSR, a propagação de um erro de
+classificação é significativamente mais penalizadora do que uma ausência temporária de leitura.
+Por fim, para otimizar a eficiência das chamadas ao modelo, vários recortes do mesmo
+\emph{tracklet} são apresentados na mesma \emph{prompt}. Este agrupamento é, contudo, limitado a
+um número reduzido de \emph{tracklets} em cada chamada, de forma a respeitar o limiar a partir do
+qual o mecanismo de atenção do modelo se satura e a precisão das respostas se degrada.
+
+\subsection{Agregação Temporal por Votação}
+
+A leitura efetuada sobre um recorte isolado é, por natureza, ruidosa. Uma pose desfavorável, uma
+oclusão momentânea ou variações de iluminação são suficientes para induzir erros na inferência de
+um \emph{frame}, mesmo quando a numeração se mantém globalmente legível ao longo do
+\emph{tracklet} (Figura~\ref{fig:jnr-crops}). Para converter este conjunto de leituras individuais
+numa decisão única e fiável, adotou-se um esquema de votação temporal estruturado em duas fases
+hierárquicas, concebido para mitigar o ruído em diferentes escalas de tempo.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{jnr_crops_tracklet71.png}
+    \caption{Recortes da região dorsal de um mesmo \emph{tracklet} ao longo do tempo. O número do
+    jogador é nítido apenas em parte dos \emph{frames}, sendo comprometido nos restantes por
+    desfoque, oclusão ou pose desfavorável. É esta variabilidade que justifica tanto o filtro de
+    qualidade à entrada como a consolidação das leituras por votação temporal.}
+    \label{fig:jnr-crops}
+\end{figure}
+
+Na primeira fase, os recortes de cada \emph{tracklet} são particionados em janelas temporais.
+Cada janela apenas emite uma predição válida se uma fração dominante das suas leituras convergir
+no mesmo valor, filtrando assim variações momentâneas e descartando instâncias erráticas entre
+\emph{frames} adjacentes. Na segunda fase, a numeração final atribuída ao \emph{tracklet}
+corresponde à hipótese mais votada entre as janelas, desde que cumpra uma quota mínima do total
+emitido. Deste modo, a primeira fase filtra o ruído de alta frequência ao nível do \emph{frame},
+enquanto a segunda arbitra leituras concorrentes que persistem no tempo, conferindo robustez ao
+processo.
+
+Um aspeto determinante deste mecanismo é a inclusão das leituras nulas no apuramento final, sendo
+estas contabilizadas negativamente contra qualquer número candidato. Ao integrar as janelas sem
+leitura no denominador da votação, impede-se que uma leitura incorreta e isolada, suportada por
+uma única janela válida entre várias vazias, obtenha suporte suficiente para prevalecer. Esta
+abordagem neutraliza o risco de falsos positivos decorrente do critério conservador do modelo de
+visão, que gera deliberadamente uma elevada proporção de respostas nulas. A exigência de confiança
+na inferência individual e a penalização da incerteza na agregação operam, assim, de forma
+concertada, assegurando que a decisão final priorize a consistência temporal em detrimento de
+evidências pontuais.
+
+\subsection{Alternativas Consideradas}
+
+A solução final para a leitura do número não foi imediata. Resultou da comparação de várias famílias
+de OCR e de modelos de visão e linguagem, assim como de estratégias de pré-processamento da imagem.
+A Tabela~\ref{tab:alternativas} resume as abordagens exploradas e a razão do seu descarte.
+
+\begin{table}[htbp]
+\centering
+\caption{Alternativas de leitura do número consideradas e razão do seu descarte.}
+\label{tab:alternativas}
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{|p{3.6cm}|p{9.0cm}|}
+\hline
+\textbf{Abordagem} & \textbf{Razão do descarte} \\
+\hline
+EasyOCR e OCR clássico &
+Mesma limitação estrutural do MMOCR, falha em números pequenos ou inclinados e não
+distingue o número de outros elementos gráficos. \\
+\hline
+PaddleOCR (com \emph{fine-tuning}) &
+Falha de segmentação (\emph{segfault}) ao inicializar no mesmo processo que o CUDA do
+\emph{pipeline}, e mesmo isolado não recuperou leituras face ao Qwen. \\
+\hline
+HunyuanOCR &
+\emph{VLM} mais pesado, sem ganho de exatidão que compensasse o custo de VRAM e de
+latência no \emph{hardware} disponível. \\
+\hline
+Qwen2.5-VL-7B &
+Requer cerca de 10\,GB de VRAM, acima dos 6\,GB da GPU, o que inviabiliza a sua
+utilização. \\
+\hline
+Super-resolução (RealESRGAN) &
+A informação em falta não existe na imagem de origem, e a ampliação amplifica o ruído
+em vez de a recuperar. \\
+\hline
+SAM-3D-Body &
+Reconstrução tridimensional do corpo demasiado pesada para correr por \emph{frame} e
+desadequada a um simples sinal de orientação. \\
+\hline
+Classificador de orientação &
+O ganho de filtrar as \emph{frames} sem as costas visíveis não compensou, pois a votação
+por \emph{tracklet} já absorve naturalmente essas \emph{frames}. \\
+\hline
+\end{tabular}
+\end{table}
+
+
+Estas experiências convergem numa conclusão. Em condições de baixa resolução, o fator decisivo não é
+a escolha do motor de OCR mais potente, mas sim entregar ao modelo a imagem certa, o recorte da
+região dorsal obtido por pose, e agregar bem as leituras ao longo do tempo. O Qwen2.5-VL-3B foi
+escolhido pelo equilíbrio entre exatidão e ocupação de memória, e não por ser o modelo de maior
+dimensão.
+
+\section{Atribuição de Equipa e do Lado do Campo}
+
+Na solução de referência, a atribuição de equipa resulta de um agrupamento (\emph{clustering}) por
+\emph{k-means} aplicado às características de reidentificação que o PRTreID extrai de cada jogador. O
+\emph{k-means} é um algoritmo de agrupamento não supervisionado que reparte as observações num
+número fixo de grupos, aqui dois, um por equipa, atribuindo cada observação ao grupo cujo centro lhe
+está mais próximo e ajustando esses centros de forma iterativa até a partição estabilizar. Aplicado
+a estes vetores de características (\emph{features}), o método reúne num mesmo grupo os jogadores que
+ficam próximos no espaço latente, o que tende a corresponder aos que envergam o mesmo equipamento.
+Os \emph{tracklets} são assim separados em dois grupos e cada grupo é depois associado a um dos lados
+do campo, a partir da posição dos jogadores no relvado. As alterações introduzidas incidem sobre os
+dois momentos deste processo, o agrupamento propriamente dito e o mapeamento dos grupos para os
+lados, e incluem ainda a recalibração dos limiares de decisão que os governam.
+
+
+\subsection{Agrupamento por Características Visuais}
+
+A solução de referência atribui as equipas num único passo. Aplica o \emph{k-means} com dois grupos
+sobre a média, por \emph{tracklet}, das características de reidentificação extraídas pelo PRTreID, e
+assume que os dois grupos obtidos correspondem às duas equipas. Isto funciona bem quando os
+equipamentos têm cores claramente diferentes, mas falha quando as duas equipas usam cores parecidas,
+porque nesse caso as características de reidentificação deixam de as distinguir.
+
+A alteração introduzida consiste em aferir a qualidade deste agrupamento antes de o aceitar e em
+dispor de uma alternativa para quando ele não é de confiança. O agrupamento por reidentificação é
+sempre calculado primeiro, por ser o sinal mais informativo quando funciona, e é depois submetido a
+dois testes independentes. Basta que um deles acuse falta de fiabilidade para que a alternativa
+entre em ação.
+
+O primeiro teste recorre ao coeficiente de silhueta, uma medida que avalia se os dois grupos ficaram
+bem definidos. Para cada \emph{tracklet}, compara a distância aos elementos do seu próprio grupo com
+a distância aos do outro grupo, e resume essa relação num valor entre $-1$ e $1$. Valores próximos de
+$1$ indicam grupos coesos e bem separados, ao passo que valores baixos indicam grupos que se
+confundem. Quando a média deste valor sobre todos os \emph{tracklets} fica abaixo de $0.28$,
+considera-se que a reidentificação não separou as duas equipas.
+
+O segundo teste dirige-se a uma situação que a silhueta não capta. Quando a jogada decorre
+concentrada numa das metades do campo, com pelo menos $85\%$ dos \emph{tracklets} do mesmo lado, e
+os centros dos dois grupos estão simultaneamente próximos no espaço de reidentificação, a uma
+distância euclidiana inferior a $2.04$, a separação obtida é tomada como frágil ainda que a silhueta
+não a denuncie. As posições manifestamente fora do relvado, resultantes de falhas pontuais de
+calibração, são descartadas antes desta contagem.
+
+Verificada qualquer uma das duas condições, passa-se a agrupar pela cor da camisola em vez das
+características de reidentificação. Essa cor não é medida neste momento, mas sim um descritor que o
+sistema já calcula para cada jogador na fase de reidentificação, a partir da zona do tronco isolada
+pela máscara de segmentação do corpo, e que resume a cor do equipamento sob a forma de um
+histograma. Aplica-se novamente o \emph{k-means}, agora apenas sobre este descritor de cor. Usa-se
+isolado, e não combinado com o vetor de reidentificação, porque os seus poucos valores seriam
+abafados pelas centenas de dimensões da reidentificação e a cor deixaria de pesar na separação. A
+Figura~\ref{fig:team_cluster} mostra, para um vídeo real, a separação dos dois grupos tanto no espaço
+de reidentificação como no descritor de cor.
+
+A aceitação desta alternativa não é incondicional, mas a exigência difere consoante o teste que a
+desencadeou. Quando foi o coeficiente de silhueta, requer-se que a divisão por cor seja equilibrada,
+com o grupo menor a reunir pelo menos $20\%$ dos \emph{tracklets}, mantendo-se o agrupamento
+original em caso contrário, para não trocar uma separação fraca por outra ainda menos fiável.
+Quando foi a segunda condição, a alternativa é aceite sem essa exigência, por se ter optado por
+preservar o comportamento original desta regra, cuja alteração introduzia regressões no conjunto de
+teste.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{team_cluster_space.png}
+    \caption{Agrupamento dos \emph{tracklets} de um vídeo nas duas equipas. À esquerda, a projeção
+    das características de reidentificação em duas dimensões, onde o \emph{k-means} separa os dois
+    grupos com um coeficiente de silhueta de $0.42$. À direita, o descritor de cor da camisola dos
+    mesmos \emph{tracklets}, que preserva a separação, com silhueta de $0.32$, e serve de alternativa
+    quando a reidentificação é pouco fiável.}
+    \label{fig:team_cluster}
+\end{figure}
+
+\subsection{Mapeamento para os Lados do Campo}\label{sec:mapeamento}
+
+Definidos os dois grupos, resta associar cada um ao seu lado do campo. Esta decisão apoia-se na
+posição dos jogadores no relvado, projetada pela calibração, e resolve-se por uma cascata de quatro
+critérios de exigência decrescente.
+
+O primeiro é uma votação por \emph{tracklet}. Cada \emph{tracklet} vota no lado correspondente à
+sua posição média, depois de filtrados os valores atípicos, e um grupo é atribuído a um lado
+quando uma fração dominante dos seus \emph{tracklets} aponta nesse sentido. Quando esta votação é
+inconclusiva, por os dois grupos surgirem ambíguos ou do mesmo lado, entra um segundo critério que
+compara a tendência relativa dos dois grupos, atribuindo o lado direito àquele que reúne
+proporcionalmente mais \emph{tracklets} desse lado, ainda que nenhum atinja a maioria absoluta. Se
+ambas as votações falharem, comparam-se diretamente as posições médias dos dois grupos e o lado
+direito é dado ao grupo cuja média está mais à direita. Só quando essas médias são demasiado
+próximas para constituírem sinal fiável, tipicamente quando toda a jogada decorre concentrada numa
+zona do campo, se recorre a um último desempate. Nesse caso, toma-se como equipa atacante aquela
+que, ao longo da sequência, mais avança em direção à baliza defendida pelo guarda-redes, ficando a
+outra associada ao lado oposto. A Figura~\ref{fig:team_side} resume esta cascata de decisão.
+
+Os limiares que governam esta cascata, tanto a maioria exigida na votação como as margens mínimas
+dos restantes critérios, foram recalibrados em conjunto sobre os dados de teste e de validação. A
+recalibração obedeceu a uma condição estrita, a de não degradar nenhum vídeo que já estivesse
+correto, de modo que cada ajuste só foi aceite quando resolvia casos falhados sem introduzir novas
+falhas.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{team_side_flow.png}
+    \caption{Fluxograma do processo que atribui cada grupo ao seu lado do campo, aplicando os
+    critérios por ordem até um deles resolver a atribuição.}
+    \label{fig:team_side}
+\end{figure}
+
+\FloatBarrier
+
+\section{Ambiente Experimental}
+
+Esta secção descreve as condições em que o sistema foi desenvolvido e avaliado. Apresenta o ambiente
+computacional e o conjunto de dados, enumera os hiperparâmetros que governam os módulos
+intervencionados e define o protocolo de avaliação sobre o qual assentam os resultados do capítulo
+seguinte.
+
+\subsection{Ambiente Computacional e Conjunto de Dados}
+
+Todo o trabalho foi implementado com base no \emph{framework} TrackLab, responsável pela gestão e
+execução sequencial dos módulos do \emph{pipeline}, tendo como suporte a biblioteca PyTorch. O
+desenvolvimento decorreu em Python~3.10 e a execução final sobre o conjunto de treino em
+Python~3.12, com as versões das bibliotecas fixadas e sem qualquer alteração ao código dos módulos.
+A principal restrição computacional decorreu da infraestrutura de \emph{hardware}
+disponível, um sistema portátil equipado com uma GPU NVIDIA RTX~3060 com apenas 6~GB de VRAM. Esta
+limitação condicionou várias das decisões metodológicas adotadas, com destaque para a quantização a
+4 bits do modelo de visão e linguagem, com recurso à biblioteca \emph{bitsandbytes}, e a desalocação
+manual da memória de vídeo após o processamento de cada sequência.
+
+A validação experimental utilizou o conjunto de dados SoccerNet-GSR, constituído por
+sequências de vídeo anotadas e divididas nos subconjuntos de treino, validação e teste.
+O protocolo de avaliação abrangeu a totalidade das 160 sequências anotadas,
+correspondentes aos conjuntos de treino (57 vídeos), de validação (54 vídeos) e de teste
+(49 vídeos). Para cada interveniente, este conjunto disponibiliza a anotação de
+referência (\emph{ground truth}) da posição no terreno de jogo, da equipa, da função e do
+número de camisola, permitindo tanto a avaliação integrada do sistema como o teste
+isolado de cada módulo.
+
+O papel de cada subconjunto neste trabalho difere do habitual e convém precisá-lo. Nenhum dos
+módulos desenvolvidos envolve treino de modelos, pelo que o subconjunto de treino não foi usado
+para aprender parâmetros. Os limiares de decisão foram afinados sobre os conjuntos de teste e de
+validação, como se descreve na Secção~\ref{sec:mapeamento}, e o conjunto de treino permaneceu
+inteiramente por observar até à fase final. Serve, por isso, o propósito de um conjunto de
+retenção, ou seja, de medir o desempenho em dados que não intervieram em nenhuma decisão de
+conceção.
+
+\subsection{Parametrização dos Módulos}
+
+O comportamento dos módulos desenvolvidos é definido por um conjunto de hiperparâmetros, resumidos na
+Tabela~\ref{tab:hiperparametros}. Os valores relativos ao reconhecimento do número de camisola foram
+definidos por experimentação, procurando equilibrar a fiabilidade da leitura com o custo
+computacional, ao passo que os limiares da atribuição de equipa e do lado do campo resultam da
+recalibração descrita na Secção~\ref{sec:mapeamento}, conduzida sobre os conjuntos de teste e de
+validação.
+
+
+\begin{table}[htbp]
+    \centering
+    \caption{Hiperparâmetros dos módulos intervencionados e respetiva função.}
+    \label{tab:hiperparametros}
+    \begin{tabular}{lll}
+        \hline
+        \textbf{Parâmetro} & \textbf{Valor} & \textbf{Função} \\
+        \hline
+        \multicolumn{3}{l}{\emph{Reconhecimento de número de camisola (pose e recorte)}} \\
+        Confiança da pose            & $0.25$          & Deteção mínima dos \emph{keypoints} \\
+        Alargamento lateral da ROI   & $0.55$          & Margem lateral sobre o tronco \\
+        Margem superior da ROI       & $0.10$          & Recorte acima dos ombros \\
+        Fração de altura do tronco   & $0.90$          & Extensão vertical da região dorsal \\
+        \hline
+        \multicolumn{3}{l}{\emph{Reconhecimento de número de camisola (filtro de qualidade)}} \\
+        Dimensão mínima do recorte   & $25\times30$~px & Rejeita jogadores distantes \\
+        Nitidez mínima               & $40.0$          & Variância do Laplaciano \\
+        \hline
+        \multicolumn{3}{l}{\emph{Reconhecimento de número de camisola (leitura e votação)}} \\
+        Modelo de leitura            & Qwen2.5-VL-3B (4 bits) & Inferência do número \\
+        \emph{Tracklets} por chamada & $4$             & Agrupamento de chamadas ao modelo \\
+        Recortes por chamada         & $20$            & Limite antes de saturar a atenção \\
+        Concordância na janela       & $0.75$          & Consenso dentro de cada janela \\
+        Concordância no \emph{tracklet} & $0.45$       & Consenso entre janelas, com nulos \\
+        \hline
+        \multicolumn{3}{l}{\emph{Atribuição de equipa (agrupamento)}} \\
+        Limiar de silhueta           & $0.28$          & Abaixo, recorre à cor da camisola \\
+        Concentração num dos lados   & $0.85$          & Condição do teste complementar \\
+        Distância entre centros      & $2.04$          & Abaixo, separação por ReID frágil \\
+        Fração mínima do grupo menor & $0.20$          & Aceitação da alternativa de cor \\
+        Dimensão do descritor de cor & $27$            & Histograma HSV e cor média \\
+        \hline
+        \multicolumn{3}{l}{\emph{Atribuição de equipa (lado do campo)}} \\
+        Maioria na votação           & $0.60$          & Fração dominante por \emph{tracklet} \\
+        Diferença relativa mínima    & $0.10$          & Margem do voto relativo \\
+        Distância mínima entre médias & $0.3$~m        & Aciona o desempate final \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+\subsection{Protocolo de Avaliação}
+
+A avaliação é conduzida em dois níveis complementares, seguindo a lógica exposta na
+Secção~\ref{sec:metricas}. Ao nível do sistema completo, o desempenho é medido pela métrica oficial
+do desafio, o GS-HOTA, que articula a precisão da localização no campo com a correção de todos os
+atributos de identidade de cada interveniente. Ao nível de cada módulo intervencionado, e para isolar
+o seu contributo, mede-se separadamente a exatidão da leitura do número de camisola e a exatidão da
+atribuição de equipa, por comparação direta com a anotação de referência.
+
+A recalibração dos limiares seguiu um protocolo estrito de ausência de regressões. Cada ajuste foi
+testado em simultâneo nos conjuntos de teste e de validação e só foi aceite quando corrigia casos
+anteriormente falhados sem degradar nenhum vídeo já correto. Deste modo, garante-se que os ganhos
+reportados no capítulo seguinte resultam de melhorias consistentes em todo o conjunto avaliado, e não
+de um sobreajuste a casos particulares.

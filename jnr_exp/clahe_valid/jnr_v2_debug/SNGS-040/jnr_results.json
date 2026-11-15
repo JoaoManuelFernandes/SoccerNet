@@ -1,0 +1,706 @@
+[
+  {
+    "tid": 1.0,
+    "jersey": "33",
+    "conf": 0.667,
+    "historial": [
+      "33",
+      "33",
+      "93"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 3610.0,
+        "mean_area": 1005.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3847.2,
+        "mean_area": 1011.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2963.0,
+        "mean_area": 911.7
+      }
+    ]
+  },
+  {
+    "tid": 9.0,
+    "jersey": "6",
+    "conf": 0.5,
+    "historial": [
+      "6",
+      "65"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 2649.4,
+        "mean_area": 857.8
+      },
+      {
+        "n_crops": 3,
+        "mean_sharp": 2445.1,
+        "mean_area": 821.3
+      }
+    ]
+  },
+  {
+    "tid": 25.0,
+    "jersey": null,
+    "conf": 0.0,
+    "historial": [
+      null
+    ],
+    "window_meta": [
+      {
+        "n_crops": 4,
+        "mean_sharp": 1681.4,
+        "mean_area": 829.2
+      }
+    ]
+  },
+  {
+    "tid": 38.0,
+    "jersey": "99",
+    "conf": 0.778,
+    "historial": [
+      "56",
+      "5",
+      "18",
+      "5",
+      "5",
+      "6",
+      "5",
+      "39",
+      "99",
+      "99",
+      "99",
+      "99",
+      "99",
+      "53",
+      "55",
+      "99",
+      "99"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 1686.9,
+        "mean_area": 994.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2002.9,
+        "mean_area": 826.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2060.2,
+        "mean_area": 898.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1678.1,
+        "mean_area": 876.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1218.3,
+        "mean_area": 884.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1013.6,
+        "mean_area": 961.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 962.0,
+        "mean_area": 1112.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1480.3,
+        "mean_area": 1103.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1776.1,
+        "mean_area": 1354.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1231.9,
+        "mean_area": 1475.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2064.6,
+        "mean_area": 1413.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2275.8,
+        "mean_area": 1239.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2274.7,
+        "mean_area": 1199.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1982.8,
+        "mean_area": 1123.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1538.5,
+        "mean_area": 1296.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1156.5,
+        "mean_area": 1419.7
+      },
+      {
+        "n_crops": 3,
+        "mean_sharp": 1401.3,
+        "mean_area": 1491.7
+      }
+    ]
+  },
+  {
+    "tid": 46.0,
+    "jersey": "5",
+    "conf": 0.6,
+    "historial": [
+      "5",
+      "4",
+      "5",
+      "5",
+      "99"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 2452.8,
+        "mean_area": 919.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3605.7,
+        "mean_area": 851.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2950.7,
+        "mean_area": 1050.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3576.0,
+        "mean_area": 1027.2
+      },
+      {
+        "n_crops": 3,
+        "mean_sharp": 3910.4,
+        "mean_area": 934.3
+      }
+    ]
+  },
+  {
+    "tid": 55.0,
+    "jersey": "5",
+    "conf": 0.9,
+    "historial": [
+      "11",
+      "5",
+      "12",
+      "5",
+      "5"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 2513.0,
+        "mean_area": 870.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3295.8,
+        "mean_area": 816.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2647.9,
+        "mean_area": 855.8
+      }
+    ]
+  },
+  {
+    "tid": 57.0,
+    "jersey": "8",
+    "conf": 0.778,
+    "historial": [
+      "8",
+      "5",
+      "8",
+      "8",
+      "8",
+      "15",
+      "8",
+      "8",
+      "8"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 1902.5,
+        "mean_area": 976.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3179.4,
+        "mean_area": 955.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2996.1,
+        "mean_area": 1037.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3049.6,
+        "mean_area": 1043.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2588.3,
+        "mean_area": 948.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2722.8,
+        "mean_area": 1011.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2466.3,
+        "mean_area": 1075.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2312.4,
+        "mean_area": 1110.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2337.4,
+        "mean_area": 1167.2
+      }
+    ]
+  },
+  {
+    "tid": 70.0,
+    "jersey": "23",
+    "conf": 0.7,
+    "historial": [
+      "23",
+      "23",
+      "5",
+      "23",
+      "25",
+      "22",
+      "23",
+      "23",
+      "23",
+      "23",
+      "22",
+      "22",
+      "23",
+      "22",
+      "23",
+      "22",
+      "22",
+      "27",
+      "27",
+      "25",
+      "23",
+      "22",
+      null
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 1409.5,
+        "mean_area": 1398.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1835.3,
+        "mean_area": 1205.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1114.6,
+        "mean_area": 1292.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1907.8,
+        "mean_area": 1236.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1385.2,
+        "mean_area": 1202.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1143.9,
+        "mean_area": 1219.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1938.5,
+        "mean_area": 1242.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2391.9,
+        "mean_area": 1196.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2160.2,
+        "mean_area": 1243.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1724.4,
+        "mean_area": 1283.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2030.4,
+        "mean_area": 1199.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2194.3,
+        "mean_area": 1206.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2219.1,
+        "mean_area": 1178.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2491.7,
+        "mean_area": 1060.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3092.6,
+        "mean_area": 1256.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2694.3,
+        "mean_area": 1285.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1826.7,
+        "mean_area": 1527.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1518.3,
+        "mean_area": 1438.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1268.3,
+        "mean_area": 1438.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1327.5,
+        "mean_area": 1237.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1305.0,
+        "mean_area": 1297.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1576.9,
+        "mean_area": 1315.2
+      },
+      {
+        "n_crops": 3,
+        "mean_sharp": 949.2,
+        "mean_area": 1075.0
+      }
+    ]
+  },
+  {
+    "tid": 85.0,
+    "jersey": "20",
+    "conf": 1.0,
+    "historial": [
+      "20",
+      "20"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 2652.7,
+        "mean_area": 783.7
+      },
+      {
+        "n_crops": 3,
+        "mean_sharp": 3777.5,
+        "mean_area": 818.3
+      }
+    ]
+  },
+  {
+    "tid": 88.0,
+    "jersey": "36",
+    "conf": 0.462,
+    "historial": [
+      "56",
+      "35",
+      "13",
+      "5",
+      "5",
+      "15",
+      "36",
+      "36",
+      "36",
+      "36",
+      "36",
+      "36",
+      "35"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 1611.3,
+        "mean_area": 1072.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1413.9,
+        "mean_area": 1078.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2295.7,
+        "mean_area": 1240.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2601.0,
+        "mean_area": 1353.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2346.9,
+        "mean_area": 1682.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2226.7,
+        "mean_area": 1466.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1821.7,
+        "mean_area": 1856.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2522.2,
+        "mean_area": 1633.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2578.2,
+        "mean_area": 1640.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2358.2,
+        "mean_area": 1664.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2654.0,
+        "mean_area": 1575.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2266.0,
+        "mean_area": 1591.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1884.1,
+        "mean_area": 1552.7
+      }
+    ]
+  },
+  {
+    "tid": 95.0,
+    "jersey": "5",
+    "conf": 1.0,
+    "historial": [
+      "5",
+      "5",
+      "5"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 2281.7,
+        "mean_area": 804.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 2799.5,
+        "mean_area": 809.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3326.5,
+        "mean_area": 780.0
+      }
+    ]
+  },
+  {
+    "tid": 98.0,
+    "jersey": "11",
+    "conf": 0.722,
+    "historial": [
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "11",
+      "15",
+      "15",
+      "11",
+      "5",
+      "5",
+      "77",
+      "11",
+      "11"
+    ],
+    "window_meta": [
+      {
+        "n_crops": 6,
+        "mean_sharp": 1126.5,
+        "mean_area": 1637.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1549.3,
+        "mean_area": 1467.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1354.3,
+        "mean_area": 1535.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1542.8,
+        "mean_area": 1576.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1625.8,
+        "mean_area": 1429.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1362.7,
+        "mean_area": 1452.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1531.2,
+        "mean_area": 1521.3
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1522.0,
+        "mean_area": 1515.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1776.2,
+        "mean_area": 1515.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1634.1,
+        "mean_area": 1336.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1269.6,
+        "mean_area": 1098.2
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1146.6,
+        "mean_area": 1468.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1165.0,
+        "mean_area": 1393.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1686.3,
+        "mean_area": 1280.5
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 1467.6,
+        "mean_area": 1201.0
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3070.2,
+        "mean_area": 1102.7
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 3696.1,
+        "mean_area": 967.8
+      },
+      {
+        "n_crops": 6,
+        "mean_sharp": 4303.0,
+        "mean_area": 856.8
+      }
+    ]
+  }
+]

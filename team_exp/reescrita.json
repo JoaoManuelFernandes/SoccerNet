@@ -1,0 +1,644 @@
+{
+ "SNGS-021": {
+  "acao": "intacto",
+  "frac": 0.4672
+ },
+ "SNGS-022": {
+  "acao": "intacto",
+  "frac": 0.4998
+ },
+ "SNGS-023": {
+  "acao": "intacto",
+  "frac": 0.4981
+ },
+ "SNGS-024": {
+  "acao": "intacto",
+  "frac": 0.4253
+ },
+ "SNGS-025": {
+  "acao": "intacto",
+  "frac": 0.4727
+ },
+ "SNGS-026": {
+  "acao": "intacto",
+  "frac": 0.4871
+ },
+ "SNGS-027": {
+  "acao": "intacto",
+  "frac": 0.4704
+ },
+ "SNGS-028": {
+  "acao": "intacto",
+  "frac": 0.4916
+ },
+ "SNGS-029": {
+  "acao": "intacto",
+  "frac": 0.4085
+ },
+ "SNGS-030": {
+  "acao": "intacto",
+  "frac": 0.2931
+ },
+ "SNGS-031": {
+  "acao": "intacto",
+  "frac": 0.4531
+ },
+ "SNGS-032": {
+  "acao": "intacto",
+  "frac": 0.4998
+ },
+ "SNGS-033": {
+  "acao": "intacto",
+  "frac": 0.4154
+ },
+ "SNGS-034": {
+  "acao": "intacto",
+  "frac": 0.479
+ },
+ "SNGS-035": {
+  "acao": "intacto",
+  "frac": 0.4722
+ },
+ "SNGS-036": {
+  "acao": "intacto",
+  "frac": 0.4389
+ },
+ "SNGS-037": {
+  "acao": "intacto",
+  "frac": 0.4071
+ },
+ "SNGS-038": {
+  "acao": "intacto",
+  "frac": 0.3109
+ },
+ "SNGS-039": {
+  "acao": "sem resgate (árbitros a mais)",
+  "frac": 0.0582,
+  "arbitros": 33,
+  "jogadores": 54
+ },
+ "SNGS-040": {
+  "acao": "intacto",
+  "frac": 0.0867
+ },
+ "SNGS-041": {
+  "acao": "intacto",
+  "frac": 0.2043
+ },
+ "SNGS-042": {
+  "acao": "intacto",
+  "frac": 0.2573
+ },
+ "SNGS-043": {
+  "acao": "intacto",
+  "frac": 0.255
+ },
+ "SNGS-044": {
+  "acao": "intacto",
+  "frac": 0.2243
+ },
+ "SNGS-045": {
+  "acao": "intacto",
+  "frac": 0.2555
+ },
+ "SNGS-046": {
+  "acao": "intacto",
+  "frac": 0.1026
+ },
+ "SNGS-047": {
+  "acao": "intacto",
+  "frac": 0.1259
+ },
+ "SNGS-048": {
+  "acao": "intacto",
+  "frac": 0.2717
+ },
+ "SNGS-049": {
+  "acao": "intacto",
+  "frac": 0.337
+ },
+ "SNGS-050": {
+  "acao": "sem resgate (árbitros a mais)",
+  "frac": 0.0083,
+  "arbitros": 30,
+  "jogadores": 37
+ },
+ "SNGS-051": {
+  "acao": "intacto",
+  "frac": 0.3602
+ },
+ "SNGS-052": {
+  "acao": "intacto",
+  "frac": 0.3559
+ },
+ "SNGS-053": {
+  "acao": "intacto",
+  "frac": 0.1649
+ },
+ "SNGS-054": {
+  "acao": "intacto",
+  "frac": 0.3569
+ },
+ "SNGS-055": {
+  "acao": "intacto",
+  "frac": 0.4525
+ },
+ "SNGS-056": {
+  "acao": "intacto",
+  "frac": 0.4865
+ },
+ "SNGS-057": {
+  "acao": "intacto",
+  "frac": 0.3881
+ },
+ "SNGS-058": {
+  "acao": "intacto",
+  "frac": 0.4321
+ },
+ "SNGS-060": {
+  "acao": "intacto",
+  "frac": 0.4952
+ },
+ "SNGS-061": {
+  "acao": "intacto",
+  "frac": 0.4603
+ },
+ "SNGS-062": {
+  "acao": "intacto",
+  "frac": 0.4928
+ },
+ "SNGS-063": {
+  "acao": "intacto",
+  "frac": 0.4707
+ },
+ "SNGS-064": {
+  "acao": "intacto",
+  "frac": 0.4452
+ },
+ "SNGS-065": {
+  "acao": "intacto",
+  "frac": 0.4884
+ },
+ "SNGS-066": {
+  "acao": "intacto",
+  "frac": 0.4933
+ },
+ "SNGS-067": {
+  "acao": "intacto",
+  "frac": 0.4397
+ },
+ "SNGS-068": {
+  "acao": "intacto",
+  "frac": 0.4732
+ },
+ "SNGS-069": {
+  "acao": "resgate rejeitado",
+  "frac": 0.0272,
+  "frac_resgate": 0.28,
+  "frac_det_resgate": 0.0292
+ },
+ "SNGS-070": {
+  "acao": "intacto",
+  "frac": 0.4399
+ },
+ "SNGS-071": {
+  "acao": "intacto",
+  "frac": 0.4499
+ },
+ "SNGS-072": {
+  "acao": "intacto",
+  "frac": 0.4909
+ },
+ "SNGS-073": {
+  "acao": "intacto",
+  "frac": 0.4516
+ },
+ "SNGS-074": {
+  "acao": "intacto",
+  "frac": 0.4751
+ },
+ "SNGS-075": {
+  "acao": "intacto",
+  "frac": 0.4309
+ },
+ "SNGS-076": {
+  "acao": "intacto",
+  "frac": 0.464
+ },
+ "SNGS-077": {
+  "acao": "intacto",
+  "frac": 0.4688
+ },
+ "SNGS-081": {
+  "acao": "intacto",
+  "frac": 0.4768
+ },
+ "SNGS-082": {
+  "acao": "intacto",
+  "frac": 0.456
+ },
+ "SNGS-083": {
+  "acao": "intacto",
+  "frac": 0.4347
+ },
+ "SNGS-084": {
+  "acao": "intacto",
+  "frac": 0.482
+ },
+ "SNGS-085": {
+  "acao": "intacto",
+  "frac": 0.4623
+ },
+ "SNGS-086": {
+  "acao": "intacto",
+  "frac": 0.4511
+ },
+ "SNGS-087": {
+  "acao": "intacto",
+  "frac": 0.4904
+ },
+ "SNGS-088": {
+  "acao": "intacto",
+  "frac": 0.4812
+ },
+ "SNGS-089": {
+  "acao": "intacto",
+  "frac": 0.4578
+ },
+ "SNGS-090": {
+  "acao": "intacto",
+  "frac": 0.4276
+ },
+ "SNGS-091": {
+  "acao": "intacto",
+  "frac": 0.4777
+ },
+ "SNGS-092": {
+  "acao": "intacto",
+  "frac": 0.4706
+ },
+ "SNGS-093": {
+  "acao": "intacto",
+  "frac": 0.4273
+ },
+ "SNGS-094": {
+  "acao": "intacto",
+  "frac": 0.4911
+ },
+ "SNGS-095": {
+  "acao": "intacto",
+  "frac": 0.5
+ },
+ "SNGS-097": {
+  "acao": "intacto",
+  "frac": 0.4314
+ },
+ "SNGS-098": {
+  "acao": "intacto",
+  "frac": 0.4962
+ },
+ "SNGS-099": {
+  "acao": "intacto",
+  "frac": 0.4859
+ },
+ "SNGS-100": {
+  "acao": "intacto",
+  "frac": 0.4752
+ },
+ "SNGS-101": {
+  "acao": "intacto",
+  "frac": 0.4771
+ },
+ "SNGS-102": {
+  "acao": "intacto",
+  "frac": 0.4876
+ },
+ "SNGS-103": {
+  "acao": "intacto",
+  "frac": 0.483
+ },
+ "SNGS-104": {
+  "acao": "intacto",
+  "frac": 0.4587
+ },
+ "SNGS-105": {
+  "acao": "intacto",
+  "frac": 0.4227
+ },
+ "SNGS-106": {
+  "acao": "intacto",
+  "frac": 0.3759
+ },
+ "SNGS-107": {
+  "acao": "intacto",
+  "frac": 0.4764
+ },
+ "SNGS-108": {
+  "acao": "intacto",
+  "frac": 0.4639
+ },
+ "SNGS-109": {
+  "acao": "intacto",
+  "frac": 0.4821
+ },
+ "SNGS-110": {
+  "acao": "intacto",
+  "frac": 0.4577
+ },
+ "SNGS-111": {
+  "acao": "intacto",
+  "frac": 0.4959
+ },
+ "SNGS-112": {
+  "acao": "intacto",
+  "frac": 0.4991
+ },
+ "SNGS-113": {
+  "acao": "intacto",
+  "frac": 0.4197
+ },
+ "SNGS-114": {
+  "acao": "intacto",
+  "frac": 0.4219
+ },
+ "SNGS-115": {
+  "acao": "intacto",
+  "frac": 0.4885
+ },
+ "SNGS-116": {
+  "acao": "intacto",
+  "frac": 0.4905
+ },
+ "SNGS-117": {
+  "acao": "intacto",
+  "frac": 0.4812
+ },
+ "SNGS-118": {
+  "acao": "intacto",
+  "frac": 0.4408
+ },
+ "SNGS-119": {
+  "acao": "intacto",
+  "frac": 0.4973
+ },
+ "SNGS-120": {
+  "acao": "intacto",
+  "frac": 0.4637
+ },
+ "SNGS-121": {
+  "acao": "intacto",
+  "frac": 0.4386
+ },
+ "SNGS-122": {
+  "acao": "intacto",
+  "frac": 0.4772
+ },
+ "SNGS-123": {
+  "acao": "intacto",
+  "frac": 0.4452
+ },
+ "SNGS-124": {
+  "acao": "intacto",
+  "frac": 0.4822
+ },
+ "SNGS-125": {
+  "acao": "intacto",
+  "frac": 0.4216
+ },
+ "SNGS-126": {
+  "acao": "intacto",
+  "frac": 0.4422
+ },
+ "SNGS-127": {
+  "acao": "intacto",
+  "frac": 0.4486
+ },
+ "SNGS-128": {
+  "acao": "intacto",
+  "frac": 0.4914
+ },
+ "SNGS-129": {
+  "acao": "intacto",
+  "frac": 0.4641
+ },
+ "SNGS-130": {
+  "acao": "intacto",
+  "frac": 0.4131
+ },
+ "SNGS-131": {
+  "acao": "intacto",
+  "frac": 0.4686
+ },
+ "SNGS-132": {
+  "acao": "intacto",
+  "frac": 0.4173
+ },
+ "SNGS-133": {
+  "acao": "intacto",
+  "frac": 0.3941
+ },
+ "SNGS-134": {
+  "acao": "intacto",
+  "frac": 0.3827
+ },
+ "SNGS-135": {
+  "acao": "intacto",
+  "frac": 0.4932
+ },
+ "SNGS-136": {
+  "acao": "intacto",
+  "frac": 0.3832
+ },
+ "SNGS-137": {
+  "acao": "intacto",
+  "frac": 0.4775
+ },
+ "SNGS-138": {
+  "acao": "intacto",
+  "frac": 0.4884
+ },
+ "SNGS-139": {
+  "acao": "intacto",
+  "frac": 0.4248
+ },
+ "SNGS-140": {
+  "acao": "intacto",
+  "frac": 0.4853
+ },
+ "SNGS-141": {
+  "acao": "intacto",
+  "frac": 0.3606
+ },
+ "SNGS-142": {
+  "acao": "intacto",
+  "frac": 0.4854
+ },
+ "SNGS-143": {
+  "acao": "intacto",
+  "frac": 0.4508
+ },
+ "SNGS-144": {
+  "acao": "intacto",
+  "frac": 0.4539
+ },
+ "SNGS-145": {
+  "acao": "intacto",
+  "frac": 0.4958
+ },
+ "SNGS-146": {
+  "acao": "intacto",
+  "frac": 0.4867
+ },
+ "SNGS-147": {
+  "acao": "intacto",
+  "frac": 0.4914
+ },
+ "SNGS-148": {
+  "acao": "intacto",
+  "frac": 0.4806
+ },
+ "SNGS-149": {
+  "acao": "intacto",
+  "frac": 0.4572
+ },
+ "SNGS-150": {
+  "acao": "intacto",
+  "frac": 0.3646
+ },
+ "SNGS-151": {
+  "acao": "intacto",
+  "frac": 0.4544
+ },
+ "SNGS-152": {
+  "acao": "intacto",
+  "frac": 0.4669
+ },
+ "SNGS-153": {
+  "acao": "intacto",
+  "frac": 0.4729
+ },
+ "SNGS-154": {
+  "acao": "intacto",
+  "frac": 0.4647
+ },
+ "SNGS-155": {
+  "acao": "intacto",
+  "frac": 0.3999
+ },
+ "SNGS-156": {
+  "acao": "intacto",
+  "frac": 0.351
+ },
+ "SNGS-157": {
+  "acao": "intacto",
+  "frac": 0.4002
+ },
+ "SNGS-158": {
+  "acao": "intacto",
+  "frac": 0.4546
+ },
+ "SNGS-159": {
+  "acao": "intacto",
+  "frac": 0.4422
+ },
+ "SNGS-160": {
+  "acao": "intacto",
+  "frac": 0.4884
+ },
+ "SNGS-161": {
+  "acao": "intacto",
+  "frac": 0.4974
+ },
+ "SNGS-162": {
+  "acao": "intacto",
+  "frac": 0.4483
+ },
+ "SNGS-163": {
+  "acao": "intacto",
+  "frac": 0.4938
+ },
+ "SNGS-164": {
+  "acao": "intacto",
+  "frac": 0.4819
+ },
+ "SNGS-165": {
+  "acao": "intacto",
+  "frac": 0.4635
+ },
+ "SNGS-166": {
+  "acao": "intacto",
+  "frac": 0.4366
+ },
+ "SNGS-167": {
+  "acao": "intacto",
+  "frac": 0.4906
+ },
+ "SNGS-168": {
+  "acao": "intacto",
+  "frac": 0.4442
+ },
+ "SNGS-169": {
+  "acao": "intacto",
+  "frac": 0.4618
+ },
+ "SNGS-170": {
+  "acao": "intacto",
+  "frac": 0.4378
+ },
+ "SNGS-187": {
+  "acao": "intacto",
+  "frac": 0.4795
+ },
+ "SNGS-188": {
+  "acao": "intacto",
+  "frac": 0.435
+ },
+ "SNGS-189": {
+  "acao": "intacto",
+  "frac": 0.4437
+ },
+ "SNGS-190": {
+  "acao": "intacto",
+  "frac": 0.4794
+ },
+ "SNGS-191": {
+  "acao": "intacto",
+  "frac": 0.4053
+ },
+ "SNGS-192": {
+  "acao": "intacto",
+  "frac": 0.4861
+ },
+ "SNGS-193": {
+  "acao": "intacto",
+  "frac": 0.478
+ },
+ "SNGS-194": {
+  "acao": "intacto",
+  "frac": 0.4566
+ },
+ "SNGS-195": {
+  "acao": "intacto",
+  "frac": 0.4894
+ },
+ "SNGS-196": {
+  "acao": "intacto",
+  "frac": 0.3793
+ },
+ "SNGS-197": {
+  "acao": "intacto",
+  "frac": 0.4978
+ },
+ "SNGS-198": {
+  "acao": "intacto",
+  "frac": 0.4343
+ },
+ "SNGS-199": {
+  "acao": "intacto",
+  "frac": 0.4514
+ },
+ "SNGS-200": {
+  "acao": "intacto",
+  "frac": 0.4851
+ }
+}

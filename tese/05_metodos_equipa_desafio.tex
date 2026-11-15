@@ -1,0 +1,103 @@
+% ===========================================================================
+% NOVA SUBSECÇÃO 2.3.3, a colocar a seguir a "MÉTODOS POR APRENDIZAGEM E
+% AGRUPAMENTO" e antes da secção "MÉTRICAS DE AVALIAÇÃO".
+% ===========================================================================
+
+\subsection{MÉTODOS APRESENTADOS AO DESAFIO SOCCERNET}
+\label{sec:equipa_desafio}
+
+As duas subsecções anteriores percorreram a literatura publicada, que aborda a
+atribuição de equipa como um problema de separar os jogadores em dois grupos a partir
+da sua aparência. As soluções apresentadas ao desafio SoccerNet, por atuarem dentro de
+um sistema completo e serem avaliadas pela métrica oficial, revelam que o problema tem
+na verdade duas etapas distintas, e que a segunda tem sido tratada com muito menos
+atenção do que a primeira. Salvo indicação em contrário, as descrições que se seguem
+resumem os textos submetidos pelas próprias equipas aos relatórios oficiais (Cioppa
+et al., 2024; Giancola et al., 2025).
+
+\subsubsection*{A estrutura comum}
+
+Golovkin et al. (2025) sintetizam o panorama de forma útil. A generalidade dos sistemas
+começa por extrair, para cada jogador, uma representação da sua aparência, seja um
+histograma de cor, seja um vetor de reidentificação treinado por aprendizagem
+contrastiva. Essas representações são depois agrupadas por métodos não supervisionados,
+tipicamente o \emph{k-means} ou o DBSCAN, em dois a cinco grupos, consoante se
+pretenda separar apenas as duas equipas ou também os árbitros e os guarda-redes. A
+alternativa a esta estrutura é a aprendizagem de representações discriminativas de
+equipa, como a proposta por Istasse et al. (2019), que dispensa o agrupamento por
+produzir diretamente vetores que aproximam colegas de equipa e afastam adversários.
+
+A solução de referência do desafio inscreve-se na primeira família, uma vez que aplica
+o \emph{k-means} às representações que o PRTreID extrai, modelo que prevê em conjunto a
+função e a afiliação de equipa de cada jogador.
+
+\subsubsection*{Variantes exploradas pelos participantes}
+
+Na edição de 2024, a equipa vencedora substituiu o agrupamento genérico por um modelo
+treinado para o efeito, uma OSNet ajustada a 111 equipamentos distintos, e passou a
+procurar cinco grupos em vez de dois, a saber, as duas equipas, os árbitros e os dois
+guarda-redes. O procedimento é revelador do cuidado que a tarefa exige. Para estimar os
+grupos das equipas consideram-se apenas os jogadores a menos de 30 metros do centro do
+campo, de modo a excluir os guarda-redes, que são depois identificados separadamente
+dentro das áreas. Cada jogador é finalmente atribuído ao grupo de menor distância do
+cosseno.
+
+Na edição de 2025 predominam duas orientações. A primeira é a delegação da tarefa no
+mesmo modelo multimodal que lê o número de camisola, como faz a solução vencedora, que
+pede ao modelo a cor do equipamento e agrupa depois por essa cor. A segunda é o reforço
+da informação de aparência, como na solução que segmenta a silhueta do jogador e dela
+extrai um descritor com as cores do equipamento e as respetivas áreas, usado a seguir
+para a reidentificação, a função e a equipa.
+
+Merece registo, pelo que ensina, o percurso da equipa que ficou em último lugar em 2024.
+Propôs resolver a função e a equipa globalmente para todo o vídeo, através de uma rede
+siamesa, de um agrupamento por \emph{k-means} com vários valores de $k$ e de uma floresta
+aleatória que escolhia o agrupamento mais plausível a partir de características de
+contexto de jogo. O resultado ficou abaixo da solução de referência, e os autores
+atribuem-no ao facto de terem treinado o modelo com posições da anotação e o terem
+avaliado sobre deteções reais. É um exemplo claro de como a qualidade das etapas
+anteriores condiciona tudo o que vem depois.
+
+\subsubsection*{A atribuição do lado do campo}
+
+Separar os jogadores em dois grupos resolve metade do problema. Como a métrica oficial
+exige que cada jogador seja identificado como pertencendo à equipa da esquerda ou à da
+direita, é ainda necessário decidir qual dos dois grupos ocupa cada lado, e é aqui que
+as soluções mais divergem.
+
+A abordagem mais comum consiste em comparar a posição horizontal média dos jogadores de
+cada grupo, atribuindo o lado direito àquele cuja média está mais à direita. É o que faz
+a solução vencedora de 2025, que assume explicitamente que os jogadores tendem a
+permanecer do seu lado do campo.
+
+A solução vencedora de 2024 identifica, contudo, uma fragilidade desta suposição.
+Substitui a média única por uma votação, em que cada \emph{frame} vota no grupo que nela
+surge mais à direita, e justifica a alteração afirmando que a média simples ao longo de
+todo o clipe pode falhar em sequências curtas ou quando apenas parte do campo está
+visível.
+
+Uma terceira via recorre à posição do guarda-redes. A equipa classificada em quarto
+lugar em 2025 atribui a função de guarda-redes ao jogador mais afastado dentro de cada
+área e submete depois o resultado a uma otimização que penaliza configurações
+impossíveis, como a existência de dois guarda-redes do mesmo lado. Importa deixar claro,
+por honestidade de atribuição, que \textbf{o recurso ao guarda-redes como referência de lado
+não é original deste trabalho}, uma vez que já se encontra nesta e, de forma implícita,
+na solução vencedora de 2024, que deteta os guarda-redes separadamente.
+
+\subsubsection*{O que falta, e que este trabalho procura suprir}
+
+Duas lacunas atravessam todas estas soluções.
+
+A primeira é que \textbf{nenhuma quantifica com que frequência a suposição da posição média
+falha}. A vencedora de 2024 afirma que falha, sem indicar em quantos casos nem em que
+condições. Sem essa medida, não é possível saber se o problema é marginal ou estrutural,
+nem justificar o custo de mecanismos alternativos.
+
+A segunda é que a etapa de atribuição do lado nunca é avaliada isoladamente. O seu efeito
+dilui-se na métrica global, que agrega a localização, o \emph{tracking}, a função, o
+número e a equipa, o que impede saber quanto vale cada critério.
+
+O Capítulo~\ref{cap:resultados} responde a ambas. Mede, sobre os 160 vídeos das três
+divisões do conjunto de dados, a frequência com que o critério da posição média se
+inverte, e avalia separadamente o contributo de cada nível da cascata de decisão
+descrita na Secção~\ref{sec:met_lado}.

@@ -1,0 +1,67 @@
+{
+  "bgr_convert": {
+    "total_s": 0.0037,
+    "n": 39,
+    "avg_ms": 0.1
+  },
+  "debug_imwrite": {
+    "total_s": 0.0531,
+    "n": 44,
+    "avg_ms": 1.21
+  },
+  "debug_imwrite_crop": {
+    "total_s": 0.1671,
+    "n": 981,
+    "avg_ms": 0.17
+  },
+  "debug_imwrite_pose": {
+    "total_s": 1.6025,
+    "n": 3158,
+    "avg_ms": 0.51
+  },
+  "finalize_total": {
+    "total_s": 2.3768,
+    "n": 1,
+    "avg_ms": 2376.84
+  },
+  "process_propagate": {
+    "total_s": 1.2116,
+    "n": 2454,
+    "avg_ms": 0.49
+  },
+  "process_qwen_windows": {
+    "total_s": 42.653,
+    "n": 38,
+    "avg_ms": 1122.45
+  },
+  "process_to_numpy": {
+    "total_s": 0.0659,
+    "n": 2454,
+    "avg_ms": 0.03
+  },
+  "process_total": {
+    "total_s": 286.3688,
+    "n": 2454,
+    "avg_ms": 116.69
+  },
+  "process_yolo_loop": {
+    "total_s": 81.0107,
+    "n": 2454,
+    "avg_ms": 33.01
+  },
+  "qwen_inference": {
+    "total_s": 44.3699,
+    "n": 39,
+    "avg_ms": 1137.69
+  },
+  "yolo_bgr_convert": {
+    "total_s": 1.2315,
+    "n": 2454,
+    "avg_ms": 0.5
+  },
+  "yolo_predict": {
+    "total_s": 159.2101,
+    "n": 2454,
+    "avg_ms": 64.88
+  }
+}

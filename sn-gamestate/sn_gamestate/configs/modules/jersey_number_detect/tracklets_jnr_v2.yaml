@@ -1,0 +1,48 @@
+_target_: sn_gamestate.jersey.tracklets_jnr_v2_module.TrackletsJNRv2
+batch_size: 32
+
+# ── Pose (YOLO) ──────────────────────────────────────────────────────────────
+pose_weights: /home/joao/soccernet/weights/yolo26m-pose.pt
+pose_conf: 0.25
+
+# ── ROI das costas ────────────────────────────────────────────────────────────
+pad_x: 0.55
+pad_y_top: 0.10
+roi_height_frac: 0.90
+
+
+# ── Qwen2.5-VL 3B (motor OCR principal) ──────────────────────────────────────
+# 3B em 4-bit: ~2GB VRAM. Único modelo VL disponível em cache (3B + 7B).
+# 0.5B não existe como modelo público; 7B é demasiado lento.
+qwen_model_path: Qwen/Qwen2.5-VL-3B-Instruct
+
+# Crops mínimos por tracklet antes de disparar Qwen.
+# Valor baixo (3-5): mais chamadas Qwen mas cada uma tem menos imagens → resposta mais fiável.
+min_crops_before_qwen: 6
+
+# ── Batch multi-tracklet (speedup principal) ──────────────────────────────────
+# Qwen 3B falha com >15-20 imagens por chamada (atenção sobrecarregada).
+# 4 tracklets × 3 crops = 12 imagens por chamada → fiável.
+max_tracklets_per_qwen_batch: 4
+max_total_crops_per_batch: 20
+
+# ── Consenso ─────────────────────────────────────────────────────────────────
+window_min_agreement: 0.75
+# Fracção de TODAS as janelas (incluindo None) que devem concordar no mesmo número.
+# None conta contra — evita aceitar 1 janela válida + 10 None.
+# 0.50: tracklets 1/3/7/14 passam (50-89%), ruído tracklet 2 (40%) rejeitado.
+track_min_agreement: 0.45
+# Mínimo de janelas com número detectado antes de aceitar.
+# Evita aceitar 1 ocorrência isolada de "4" numa série de Nones.
+min_valid_windows: 1
+finalize_min_crops: 3
+
+# ── Filtro qualidade crop ────────────────────────────────────────────────────
+# Rejeitar crops demasiado pequenos ou desfocados antes de enviar ao Qwen.
+min_crop_h: 30       # altura mínima do ROI em pixels
+min_crop_w: 25       # largura mínima do ROI em pixels
+min_sharpness: 40.0  # variância do Laplaciano (relva≈5-20, jersey nítido≈50-300)
+
+# ── Debug / Distilação ────────────────────────────────────────────────────────
+save_debug_crops: true
+save_distill_crops: false

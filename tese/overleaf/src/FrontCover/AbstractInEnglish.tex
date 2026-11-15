@@ -1,0 +1,45 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{ABSTRACT}
+\endgroup
+
+\noindent The SoccerNet Game State Reconstruction (GSR) challenge consists of
+reconstructing, on a two-dimensional map of the pitch and from single-camera video, the
+position, team, role and jersey number of every player. In the reference pipeline, two
+components stand out for their poor performance, namely jersey number recognition and the
+assignment of team and pitch side. This dissertation addresses these two modules and
+leaves the remaining ones unchanged (detection, re-identification, tracking and
+calibration), so that any gains can be attributed unambiguously to the changes introduced.
+
+Jersey number recognition was rebuilt around a multimodal vision-and-language model,
+quantised to fit within the available graphics memory and applied to back-region crops
+obtained through pose estimation. The successive readings of each tracklet are then
+combined by voting. For team assignment, errors in the appearance-based clustering and in
+the mapping of clusters to pitch sides were corrected, and the decision thresholds were
+jointly recalibrated on the test and validation sets, under the constraint of not
+degrading any video.
+
+The evaluation covered 160 videos, corresponding to the three annotated subsets of
+SoccerNet-GSR. For jersey number recognition, accuracy rose from 18.6\% to 39.5\% on the
+test set, improving on 38 of the 39 videos compared and with no regressions, and remains
+at 35.7\% on validation and 35.2\% on training. Team assignment improved from 85.4\% to
+97.8\% on the test set and, on the validation set, the joint recalibration of the
+thresholds raised it from 73.3\% to 82.4\%, reaching 94.3\% on the training set. On the
+test set, GS-HOTA, the official challenge metric, reached $44.26\%$, roughly double the $22.26\%$ of the reference solution on the same set. On the training set, never used during development, it reached $42.57\%$, indicating that the performance does not stem from
+overfitting to the test set.
+
+However, the controlled experiments revealed that the remaining margin in jersey number recognition is bounded by the information present in the images themselves, so that further gains there will depend on the earlier stages of the pipeline. For team assignment, the validation set reveals errors that remain to be characterised.
+
+\hspace{3cm}\\
+\indent
+\textbf{Keywords: } Game State Reconstruction, Jersey Number Recognition, Team Affiliation,
+Multimodal Models, SoccerNet

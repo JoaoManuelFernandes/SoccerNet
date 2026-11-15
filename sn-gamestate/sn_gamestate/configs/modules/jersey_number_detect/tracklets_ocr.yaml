@@ -50,4 +50,4 @@ angle_trunk_motion_threshold: 80   # Ângulo mínimo entre tronco e movimento pa
 #   - frame_id, track_id, orientação_tronco, direção_movimento, ângulo_entre, is_facing_away, ...
 # Isso permite análise visual posterior e ajuste fino dos thresholds.
 
-jersey_segmentation_mode: densepose  # Opções: heuristic, sam, densepose, maskrcnn
+jersey_segmentation_mode: heuristic  # Opções: heuristic, sam, densepose, maskrcnn

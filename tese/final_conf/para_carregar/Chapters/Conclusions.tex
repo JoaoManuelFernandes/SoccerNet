@@ -1,0 +1,156 @@
+\chapter{Conclusão}\label{cap:conclusao}
+
+Esta dissertação partiu de uma observação simples sobre a reconstrução do estado de jogo. De entre
+os nove módulos que compõem a solução de referência do desafio SoccerNet, os dois responsáveis pela
+identificação de cada jogador, a leitura do número de camisola e a atribuição da equipa e do lado do
+campo, destacam-se pelo desempenho reduzido, e são precisamente os que menos atenção têm recebido
+na literatura. O trabalho concentrou-se neles e alterou quatro dos nove módulos. O leitor de
+números foi substituído, os módulos da equipa e do lado foram reescritos e a reidentificação ganhou
+um descritor de cor, sem mudar o que já produzia. A deteção, o seguimento, a
+estimativa dos pontos do campo, a calibração e a classificação de função mantiveram-se exatamente
+como na solução de referência. Esta delimitação não foi apenas uma questão de âmbito, foi também uma
+opção metodológica, uma vez que garante que qualquer variação de desempenho é atribuível ao que de
+facto se alterou. A comparação final reforça-a. A solução de referência foi executada por nós, nos
+mesmos $159$ vídeos, no mesmo ambiente e sobre os mesmos \emph{tracklets}, e o GS-HOTA foi
+decomposto atributo a atributo, de modo que o ganho de cada módulo pode ser lido isoladamente. É
+esta a diferença que separa este trabalho das soluções apresentadas ao desafio, que otimizam todos
+os módulos em simultâneo e não permitem isolar o contributo de cada um.
+
+Para a leitura do número, o reconhecimento ótico de caracteres da solução de referência deu lugar a
+um modelo multimodal de visão e linguagem, quantizado a 4 bits para caber nos 6~GB de memória
+gráfica disponíveis. A contribuição não está apenas na substituição do modelo, mas na forma como o
+problema lhe é apresentado. Em vez de lhe entregar o recorte completo do jogador, isola-se
+previamente a região dorsal por estimativa de pose, descartam-se os recortes sem informação
+utilizável e decide-se o número de cada \emph{tracklet} apenas com as leituras em que o próprio modelo
+indica estar seguro, o que se mede pela probabilidade que o modelo atribui à resposta. Foram estes três passos, e não
+a escolha do modelo em si, que se revelaram determinantes. O último passo nasceu de um diagnóstico ao
+próprio módulo, cuja primeira versão tratava todas as leituras como igualmente fiáveis. Reduziu os
+números errados a cerca de um terço, de $12.3\%$ para $4.4\%$ das deteções de jogadores, e ao mesmo
+tempo aumentou os números certos.
+
+Para a atribuição da equipa, corrigiram-se erros no agrupamento por aparência e no modo como cada
+grupo é associado a um lado do campo. O agrupamento passou a aferir a sua própria qualidade antes de
+ser aceite, recorrendo a um descritor da cor do equipamento, calculado sobre a região do tronco
+durante a reidentificação, quando as representações de reidentificação não separam as duas equipas.
+A atribuição do lado deixou de assentar num critério único e passou a resolver-se por uma cascata
+de quatro critérios de exigência decrescente, que termina num desempate pela posição do
+guarda-redes.
+
+Os ganhos, medidos sobre a totalidade dos vídeos anotados e contra a solução de referência corrida
+nas mesmas condições, são claros. A exatidão da leitura do número subiu de $15.3\%$ para
+$42.6\%$ sobre $159$ vídeos, com melhoria em $156$ deles e nenhuma regressão. A atribuição da equipa e do lado passou de $83.5\%$ para $92.8\%$ dos
+\emph{tracklets}, e o número de vídeos em que o módulo de equipa falha, avaliado por inspeção
+visual, desceu de $28$ para $7$. Na métrica oficial do desafio, o
+GS-HOTA subiu $16.6$ pontos no conjunto de teste, de $31.30\%$ para $47.87\%$,
+$13.1$ na validação e $13.8$ no treino, e a decomposição por atributo mostra que
+esse ganho vem inteiramente dos dois atributos alterados, a equipa e o número, sendo o número o que
+mais pesa. O conjunto de treino nunca foi observado durante o desenvolvimento nem contribuiu para a
+afinação de qualquer limiar, e os ganhos que aí se obtêm são da mesma ordem dos do conjunto de
+teste, o que afasta a objeção mais previsível a um trabalho que afina limiares sobre parte dos dados
+de avaliação.
+
+A comparação produziu ainda um resultado que não estava previsto. Ao verificar que o GS-HOTA
+calculado apenas com a posição, que deveria ser igual nos dois sistemas, não o era, identificou-se
+um defeito na configuração distribuída da solução de referência, que calibra a câmara em lotes de
+oito \emph{frames} e aplica a homografia do primeiro aos restantes sete. O defeito custa-lhe cerca
+de $5$ pontos de GS-HOTA calculado apenas com a posição e $2.4$ na métrica
+completa. Todos os valores aqui reportados comparam o sistema proposto
+com a referência corrigida deste defeito, o que reduz o ganho reclamado ao que é de facto devido às
+alterações introduzidas.
+
+Delimitar o alcance destes ganhos ocupou uma parte substancial do trabalho. Três tentativas de
+melhorar a leitura do número, uma ponderação das leituras por qualidade, um realce de contraste e a
+apresentação conjunta de todas as vistas de um \emph{tracklet}, não produziram melhorias e em alguns
+casos degradaram resultados que já estavam corretos. As três chocaram com o mesmo obstáculo, o de
+que nos casos difíceis o recorte entregue ao modelo já não contém o número a ler. O que funcionou foi
+outra via, que passa por usar a confiança do modelo para separar as leituras em que viu o número das leituras em
+que o adivinhou. Duas correções testadas depois, a fusão de fragmentos do seguimento e a imposição de
+números únicos dentro de cada equipa, melhoravam indicadores intermédios mas não o GS-HOTA, e foram
+por isso rejeitadas. O erro que resta deve-se sobretudo a recortes sem resolução e a trocas
+de identidade do seguimento, e encontra-se nas etapas que alimentam o módulo.
+
+No módulo de atribuição da equipa a situação é outra, e deve ser descrita tal como é. A
+inspeção visual dos $159$ vídeos de cada sistema caracterizou as falhas que subsistem em três
+grupos. O maior, vinte vídeos do conjunto de validação, não é deste módulo, uma vez que uma equipa joga de
+amarelo e o classificador de função, que não foi alterado, dá-a como equipa de arbitragem nos dois
+sistemas, retirando-a do agrupamento antes de ele começar. É este grupo que explica a distância
+entre a validação e os outros dois conjuntos. O segundo grupo era, até tarde no
+desenvolvimento, a única regressão própria deste trabalho, onze vídeos em que o agrupamento terminava
+com quase todos os jogadores num só grupo, afirmando que todos pertenciam à mesma equipa. A causa
+foi identificada nos registos de execução, a verificação de equilíbrio da partição só era aplicada a
+um dos ramos da auditoria, e a correção pôde ser feita e avaliada. O módulo passa a rejeitar
+qualquer partição cujo grupo menor não chegue a $8\%$ das deteções e a reagrupar pela cor do
+equipamento medida nos \emph{frames}, resolvendo sete dos onze vídeos sem alterar nenhum dos
+restantes $148$. Dos quatro que não se resolvem, um mantinha já a atribuição correta e conserva-a.
+Dos três que subsistem, um pertence ao bloco da equipa de amarelo, outro opõe
+equipamentos verde e branco, caso em que a exclusão dos píxeis de relva remove também parte das
+camisolas, e o terceiro tem a anotação invertida, pelo que passa a ser penalizado justamente por
+deixar de errar. O terceiro grupo são três vídeos com o lado trocado, num dos quais um critério
+intermédio da cascata decide, por margem curta, antes de a posição média ou o guarda-redes serem
+consultados.
+
+Na atribuição do lado do campo produziu-se ainda uma medição que a literatura não apresenta. Sobre a
+anotação de referência dos $160$ vídeos, verificou-se que o critério da posição média, adotado pela
+generalidade das soluções do desafio, se inverte em $9$ casos, ou seja em $5.6\%$ dos vídeos, ao
+passo que a posição do guarda-redes nunca contradiz a anotação nos $155$ vídeos em que é observável.
+O alcance deste resultado deve ser enunciado com precisão. O recurso ao guarda-redes como
+referência de lado não é original deste trabalho, pois já se encontra em soluções apresentadas ao
+desafio. O que aqui se acrescenta é a quantificação da frequência com que a suposição alternativa
+falha, que nenhuma dessas soluções apresenta, e a avaliação isolada de cada nível da cascata de
+decisão. Essa medição sugere uma limitação de conceção do próprio módulo. O desempate pelo
+guarda-redes ocupa o último lugar da cascata e só é acionado quando as posições médias dos dois
+grupos quase coincidem, pelo que, sempre que um critério anterior decide, ainda que incorretamente,
+o guarda-redes não chega a ser consultado. Num dos casos observados, as duas equipas encontram-se
+na mesma metade do campo, separadas por menos de dez metros, ao passo que os respetivos
+guarda-redes distam mais de setenta. A informação que resolveria o caso estava disponível e não foi
+utilizada.
+
+Por fim, a inspeção visual revelou que em cinco dos $160$ vídeos a própria anotação de referência
+tem os lados invertidos, e que a métrica de equipa, ao contar apenas os \emph{tracklets}
+classificados como jogadores, não regista os erros que o classificador de função esconde. Os valores
+reportados foram mantidos tal como a métrica os conta, para serem comparáveis com os de outros
+trabalhos, mas qualquer leitura fina desta tarefa exige as duas fontes, a métrica e a inspeção.
+
+Quanto a trabalho futuro, identificam-se cinco linhas concretas, por ordem de prioridade.
+
+A primeira é estimar a cor do fundo localmente, a partir dos píxeis que rodeiam cada deteção, em vez
+de excluir um intervalo fixo de tom. O descritor de cor que sustenta a auditoria de partições
+degeneradas assume que o verde é relva, o que falha quando uma das equipas joga de verde, único caso
+em que o reagrupamento não recupera o vídeo. A alteração é local e os módulos de equipa correm em
+segundos.
+
+A segunda é elevar o guarda-redes na cascata de decisão, associando-o a um dos grupos de jogadores
+em vez de o manter como desempate final. O sistema já calcula esta informação e descarta-a antes do
+agrupamento.
+
+A terceira é tratar a equipa de arbitragem dentro do agrupamento, procurando cinco grupos, as duas
+equipas, os árbitros e os dois guarda-redes, como faz a solução vencedora de 2024, em vez de
+depender do classificador de função para os excluir. É a via para os vinte vídeos da equipa de
+amarelo, que hoje limitam o conjunto de validação nos dois sistemas.
+
+A quarta é cortar os \emph{tracklets} nos pontos em que o seguimento troca de jogador. A inspeção
+visual mostrou casos em que um \emph{tracklet} perde o jogador que seguia, reaparece noutro da mesma
+equipa e leva consigo o número do primeiro. As tentativas de corrigir estes casos do lado do número
+prejudicaram a métrica. A correção pertence ao seguimento, e a leitura por janela com confiança, que
+já existe, permitiria detetar o ponto de troca como uma mudança do número lido com segurança.
+
+A quinta é reduzir o custo computacional, hoje de cerca de vinte minutos por cada trinta segundos de
+vídeo. A decomposição dos tempos mostra que os módulos alterados custam menos de dois segundos e que
+o leitor de números custa o mesmo que o que substituiu. O custo está na reidentificação, na leitura
+de todos os recortes e na estimativa dos pontos do campo em todos os \emph{frames}. Registar a confiança do modelo logo na primeira leitura, ler o número
+apenas nos \emph{tracklets} que ainda não o têm, calcular a reidentificação apenas onde o seguimento
+é ambíguo e, em câmara fixa, calibrar uma única vez, são os passos que tornariam o sistema
+utilizável fora do conjunto de dados, e que uma avaliação em vídeos de outra proveniência deveria
+acompanhar, uma vez que as sequências do SoccerNet-GSR provêm de uma única produção televisiva.
+
+A estas acresce a direção que a análise das soluções mais competitivas aponta de forma independente
+e que a decomposição por atributo confirma, uma vez que, com a posição apenas, o sistema não passa dos
+$62$ pontos no conjunto de teste, e é na deteção, no seguimento e na calibração,
+precisamente os módulos que este trabalho manteve intactos, que reside o salto para valores acima
+dos $60\%$. Trata-se de um âmbito distinto do que aqui se delimitou.
+
+Por último, vale a pena registar que a direção seguida coincide com a que o estado da arte veio a
+adotar. A formulação da identificação como tarefa multimodal, resolvida por um modelo de visão e
+linguagem, tornou-se prática corrente entre as soluções mais competitivas na edição de 2025, tendo
+sido aqui alcançada de forma independente e sob restrições de recursos consideravelmente mais
+severas.

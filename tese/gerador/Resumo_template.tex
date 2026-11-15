@@ -1,0 +1,53 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{RESUMO}
+\endgroup
+
+\noindent O desafio SoccerNet de reconstrução do estado de jogo (\emph{Game State Reconstruction},
+GSR) consiste em reconstruir, num mapa bidimensional do campo e a partir de vídeo de câmara única,
+a posição, a equipa, a função e o número de camisola de cada jogador. Na solução de referência, dois
+componentes destacam-se pelo desempenho reduzido, o reconhecimento do número de camisola e a
+atribuição da equipa e do lado do campo. Esta dissertação intervém em quatro dos nove módulos do
+\emph{pipeline}, a saber, substitui o leitor de números, reescreve os módulos de equipa e de lado e estende
+o de reidentificação com um descritor de cor, mantendo a deteção, o seguimento, a calibração e a
+classificação de função inalterados, de modo que os ganhos possam ser atribuídos sem ambiguidade às
+alterações introduzidas.
+
+O reconhecimento do número foi reconstruído em torno de um modelo multimodal de visão e linguagem,
+quantizado para caber na memória gráfica disponível e aplicado a recortes da região dorsal obtidos
+por estimativa de pose, com as leituras sucessivas de cada \emph{tracklet} consolidadas por votação.
+Na atribuição da equipa, o agrupamento por aparência passou a aferir a sua própria qualidade e a
+recorrer à cor do equipamento quando a reidentificação não separa as equipas, rejeitando ainda
+qualquer partição que deixe quase todos os jogadores num só grupo, e o lado do campo é decidido por
+uma cascata de critérios que termina na posição do guarda-redes.
+
+A avaliação abrangeu os $159$ vídeos anotados do SoccerNet-GSR, comparando o sistema proposto com a
+solução de referência executada nas mesmas condições e sobre os mesmos \emph{tracklets}. A exatidão
+do número de camisola subiu de @@JNR_ALL_O@@ para @@JNR_ALL_N@@, com melhoria em @@JNR_UP@@ dos
+$159$ vídeos. A da equipa e lado do campo subiu de @@TEAM_ALL_O@@ para @@TEAM_ALL_N@@, e o número de
+vídeos em que o módulo de equipa falha, avaliado por inspeção visual, desceu de $@@VIS_O_EQUIPA@@$
+para $@@VIS_N_EQUIPA@@$. O GS-HOTA, métrica oficial do desafio, subiu de @@GS_TEST_O@@ para
+@@GS_TEST_N@@ no conjunto de teste, com ganhos da mesma ordem na validação e no conjunto de treino,
+que não interveio no desenvolvimento. A decomposição da métrica por atributo imputa o ganho
+inteiramente aos dois atributos alterados. A comparação revelou ainda um defeito de calibração na
+configuração distribuída da solução de referência, corrigido antes da comparação.
+
+As experiências controladas mostram que a margem que resta no número de camisola está limitada pela
+informação presente nas imagens. Na atribuição da equipa, a inspeção visual caracterizou as falhas
+que subsistem, a maior parte devida ao classificador de função, que não foi alterado. Identificam-se
+ainda cinco vídeos cuja anotação de referência troca os lados das equipas, o que penaliza na métrica
+os sistemas que acertam.
+
+\hspace{3cm}\\
+\indent
+\textbf{Palavras-chave: } Reconstrução do Estado de Jogo, Reconhecimento do Número de Camisola,
+Atribuição da Equipa, Modelos Multimodais, SoccerNet
