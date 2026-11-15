@@ -57,3 +57,6 @@ sn-gamestate/docs/full_report/videos/
 *.zip
 *.tar.gz
 *.bak_*
+# Fonte final do Overleaf: as imagens são necessárias para compilar
+!tese/overleaf_final/**/*.png
+!tese/overleaf_final/**/*.jpg

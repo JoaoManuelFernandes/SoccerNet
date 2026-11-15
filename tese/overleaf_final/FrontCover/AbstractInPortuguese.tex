@@ -1,0 +1,29 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{RESUMO}
+\endgroup
+
+\noindent O SoccerNet é um \emph{benchmark} de visão computacional para a análise automática de jogos de futebol. O seu desafio de reconstrução do estado de jogo (\emph{Game State Reconstruction}, GSR) parte de um vídeo de uma única câmara. Para cada jogador, pede a posição no mapa do campo, a equipa, a função e o número da camisola. Na \emph{baseline} do desafio, a identificação dos jogadores tem dois pontos fracos. O número da camisola só fica certo em $15.3\%$ dos \emph{tracklets}, e a atribuição da equipa e do lado do campo falha em $28$ dos $159$ vídeos avaliados.
+
+Este trabalho substituiu o módulo de reconhecimento do número, reescreveu os módulos da equipa e do lado do campo e acrescentou à reidentificação um descritor da cor do equipamento. Os restantes cinco módulos ficaram como na \emph{baseline}, para que qualquer diferença de desempenho possa ser atribuída às alterações feitas.
+
+O número passou a ser lido pelo Qwen2.5-VL-3B, um modelo multimodal de visão e linguagem quantizado a 4 bits. O modelo lê apenas as costas do jogador, recortadas a partir da pose estimada. Cada leitura traz a confiança que o próprio modelo lhe atribui, e só as leituras seguras contam para a decisão. Esta regra reduziu os números errados para cerca de um terço. Na equipa, o agrupamento por aparência passou a verificar o próprio resultado e a recorrer à cor do equipamento quando a reidentificação não separa as equipas. O lado do campo passou a ser decidido por uma cascata de quatro critérios, o último dos quais usa o guarda-redes.
+
+Nos $159$ vídeos anotados do SoccerNet-GSR, com a \emph{baseline} executada nas mesmas condições, a exatidão do número subiu de $15.3\%$ para $42.6\%$ dos \emph{tracklets}, e a da equipa e do lado de $83.5\%$ para $92.8\%$. O GS-HOTA, a métrica oficial do desafio, subiu de $31.30\%$ para $47.87\%$ no conjunto de teste, com ganhos da mesma ordem na validação e no treino, que não serviu para escolher nenhuma regra nem limiar. A decomposição da métrica por atributo mostra que todo o ganho vem do número e da equipa.
+
+No número, o erro que resta deve-se sobretudo a algarismos que não se veem na imagem e ao \emph{tracking}, que parte jogadores em vários \emph{tracklets} e troca identidades. Na equipa, deve-se sobretudo a vinte vídeos de validação em que o classificador de função, que não foi alterado, confunde os jogadores de amarelo com árbitros.
+
+
+\hspace{3cm}\\
+\indent
+\textbf{Palavras-chave: } Reconstrução do Estado de Jogo, Reconhecimento do Número da Camisola,
+Atribuição da Equipa, Modelos Multimodais, SoccerNet

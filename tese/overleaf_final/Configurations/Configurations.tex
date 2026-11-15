@@ -1,0 +1,134 @@
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{placeins}
+
+\usepackage{amssymb}
+\usepackage{makeidx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage[export]{adjustbox}		% TO allow better image alignment control
+%\usepackage{fancyvrb}
+\usepackage{multirow}
+
+\usepackage{pdfpages} 				% To be able to insert PDFs
+
+%\usepackage{showframe}				%to show the margins
+
+\usepackage{calc}					% To allow arithmetic in latex script
+
+%\usepackage[portuguese]{babel}		% Set the default language to Portuguese (Portugal)
+%\usepackage[english]{babel}
+\usepackage[english,portuguese]{babel}		% Set the defalult language to English
+\usepackage{indentfirst}			% Enables the indentation on the first pharagraph
+
+\usepackage{array}
+\usepackage{longtable}				% Tabela do anexo (vídeo a vídeo)
+\usepackage{lipsum}					% To allow one to generate random text to test
+\usepackage{blindtext}				% Random Document Generator for testing
+\usepackage{xcolor}					% Allows to change text color
+\usepackage{setspace}				% Allows to change spacing in the document
+%\usepackage[acronym]{glossaries}	% Package for glossaries related ententries
+%\usepackage[numbers]{natbib}		% Bibliography in IEEE Style [Numbers] 
+\usepackage{natbib}
+\bibliographystyle{apalike}			% Standard Bibliography style
+\usepackage{tocbibind}				% Adds the Index to the Table of Contents
+\usepackage{enumitem}				% Customize lists
+
+\raggedbottom
+
+
+%Path to image load location
+\graphicspath{
+              {Images/}             
+             }
+         
+% Page Formats
+\usepackage[left=3.00cm, right=2.50cm, top=3.50cm, bottom=3.00cm]{geometry}
+
+%Set Font for main document
+% Main Text & Math: Roman Type as Times New Roman
+\renewcommand{\rmdefault}{ptm}
+\usepackage{mathptmx}
+
+% Front Pages Titles and preface titles in "Abstract" and "Resmo": Lucinda Sans Unico
+% https://en.wikipedia.org/wiki/Lucida_Sans_Unicode
+% Lucida Sans Unicode if not free in general, so in this case we are using Helvetica clone typeface as the closes font family. If for some reason you must really use Lucida Sans Unicode, you have to search the web for someone that went through the trouble of creating a typeface clone and released it for free.
+%\usepackage[scaled]{helvet}
+\usepackage[scaled]{helvet}
+
+
+%\usepackage{sectsty}				% help change the style of any or all of LaTeX's sectional headers
+
+\usepackage{titlesec}
+%\titleformat*{\chapter}{\huge\bfseries\sffamily}
+
+
+\titleformat{\chapter}[hang]
+{\fontfamily{phv}\bfseries\fontsize{12}{14.4pt}}
+%{\chaptertitlename \thechapter}
+{\thechapter.}
+{8pt}
+{\fontfamily{phv}\fontsize{12}{14.4pt}\MakeUppercase}							% Chapters Always in Uppercase
+\titlespacing*{\chapter}{0pt}{8pt}{10pt}
+
+
+
+\titleformat*{\section}{\fontsize{10}{12pt}\bfseries\sffamily\MakeUppercase}
+\titleformat*{\subsection}{\fontsize{10}{12pt}\sffamily\MakeUppercase}
+\titleformat*{\subsubsection}{\fontsize{10}{12pt}\bfseries\sffamily}
+\titleformat*{\paragraph}{\fontsize{10}{12pt}\itshape\sffamily}
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+	{-2.5ex\@plus -1ex \@minus -.25ex}%
+	{1.25ex \@plus .25ex}%
+	{\normalfont\normalsize\bfseries}}
+\makeatother
+
+
+% ############################### TOC Definitions #######################
+% Make the Chapters in Table of Contents all UPPERCASE
+
+
+
+\usepackage{tocloft}
+\setlength{\cftbeforechapskip}{0.1cm}
+
+\usepackage{textcase}
+\usepackage{etoolbox}
+\usepackage{placeins}
+
+\makeatletter
+\patchcmd{\l@chapter}{#1}{\MakeTextUppercase{#1}}{}{}
+\patchcmd{\l@section}{#1}{\MakeTextUppercase{#1}}{}{}
+\patchcmd{\l@subsection}{#1}{\MakeTextUppercase{#1}}{}{}
+\makeatother
+
+\renewcommand{\cfttoctitlefont}{\fontfamily{phv}\bfseries\fontsize{12}{14.4pt}}
+\renewcommand{\cftloftitlefont}{\fontfamily{phv}\bfseries\fontsize{12}{14.4pt}}
+\renewcommand{\cftlottitlefont}{\fontfamily{phv}\bfseries\fontsize{12}{14.4pt}}
+\renewcommand{\cftchapleader}{\cftdotfill{\cftdotsep}}
+\renewcommand\cftchapfont{\mdseries\fontsize{9}{10.8pt}}
+\renewcommand\cftsecfont{\bfseries\fontsize{8}{9.6pt}}
+\renewcommand\cftsubsecfont{\fontsize{8}{9.6pt}}
+\renewcommand\cftsubsubsecfont{\bfseries\fontsize{8}{9.6pt}}
+\renewcommand\cftparafont{\fontsize{8}{9.6pt}}
+
+% Nomes das listas em maiúsculas, para condizer com "TABLE OF CONTENTS"
+% (via babel, senão o \begin{document} repõe "Lista de Figuras")
+\addto\captionsportuguese{%
+  \renewcommand{\listfigurename}{LISTA DE FIGURAS}%
+  \renewcommand{\listtablename}{LISTA DE TABELAS}%
+}
+
+
+
+% ########################### Glossaries ##############################
+%\makeglossaries
+%\newacronym{apa}{APA}{American Psychological Association}
+%\newacronym{apnor}{APNOR}{Associação de Politécnicos do Norte}
+
+% Espaço entre a legenda e a tabela (legendas acima das tabelas)
+\AtBeginEnvironment{table}{\setlength{\belowcaptionskip}{6pt}}

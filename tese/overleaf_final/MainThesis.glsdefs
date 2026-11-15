@@ -1,0 +1,56 @@
+\glsdefs@newdocentry{apa}%
+{%
+name={APA},%
+sort={APA},%
+type={acronym},%
+first={American Psychological Association\glsspace (APA)},%
+firstplural={American Psychological Association\acrpluralsuffix \glsspace (APA\acrpluralsuffix )},%
+text={APA},%
+plural={APA\acrpluralsuffix },%
+description={American Psychological Association},%
+descriptionplural={American Psychological Association\acrpluralsuffix },%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={American Psychological Association},%
+longplural={American Psychological Associations},%
+short={APA},%
+shortplural={APAs},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{apnor}%
+{%
+name={APNOR},%
+sort={APNOR},%
+type={acronym},%
+first={Associação de Politécnicos do Norte\glsspace (APNOR)},%
+firstplural={Associação de Politécnicos do Norte\acrpluralsuffix \glsspace (APNOR\acrpluralsuffix )},%
+text={APNOR},%
+plural={APNOR\acrpluralsuffix },%
+description={Associação de Politécnicos do Norte},%
+descriptionplural={Associação de Politécnicos do Norte\acrpluralsuffix },%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={Associação de Politécnicos do Norte},%
+longplural={Associação de Politécnicos do Nortes},%
+short={APNOR},%
+shortplural={APNORs},%
+counter={page},%
+parent={},%
+%
+}%
+

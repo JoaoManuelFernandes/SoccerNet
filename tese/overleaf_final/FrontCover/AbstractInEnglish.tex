@@ -1,0 +1,28 @@
+\begingroup
+\begin{flushleft}
+\bfseries
+\fontfamily{phv}
+{\Large
+Jersey Recognition and Team Affiliation on Soccer Game State Reconstruction}
+
+\mdseries
+\end{flushleft}
+\normalsize
+\let\clearpage\relax
+\chapter{ABSTRACT}
+\endgroup
+
+\noindent SoccerNet is a computer vision benchmark for the automatic analysis of football matches. Its Game State Reconstruction (GSR) challenge starts from a single-camera video. For each player, it asks for the position on the pitch map, the team, the role and the jersey number. In the challenge baseline, player identification has two weak points. The jersey number is correct in only 15.3\% of the tracklets, and team and pitch-side assignment fails in 28 of the 159 evaluated videos.
+
+This work replaced the jersey number recognition module, rewrote the team and pitch-side modules and added a kit colour descriptor to the re-identification module. The other five modules were kept as in the baseline, so that any difference in performance can be attributed to the changes made.
+
+The jersey number is now read by Qwen2.5-VL-3B, a multimodal vision-language model quantised to 4 bits. The model reads only the player's back, cropped from the estimated pose. Each reading comes with the confidence that the model itself assigns to it, and only confident readings count towards the decision. This rule reduced wrong numbers to about one third. In the team module, appearance-based clustering now checks its own result and falls back on kit colour when re-identification cannot separate the teams. The pitch side is now decided by a cascade of four criteria, the last of which uses the goalkeeper.
+
+On the 159 annotated videos of SoccerNet-GSR, with the baseline run under the same conditions, jersey number accuracy rose from 15.3\% to 42.6\% of the tracklets, and team and pitch-side accuracy from 83.5\% to 92.8\%. GS-HOTA, the official challenge metric, rose from 31.30\% to 47.87\% on the test set, with gains of the same order on the validation and training sets. The training set was not used to choose any rule or threshold. Breaking the metric down by attribute shows that the whole gain comes from the jersey number and the team.
+
+For the jersey number, the remaining error comes mostly from digits that are not visible in the image and from tracking, which splits players into several tracklets and swaps identities. For teams, it comes mostly from twenty validation videos in which the role classifier, which was not changed, mistakes the players in yellow for referees.
+
+
+\hspace{3cm}\\
+\indent
+\textbf{Keywords: } Game State Reconstruction, Jersey Number Recognition, Team Affiliation, Multimodal Models, SoccerNet
